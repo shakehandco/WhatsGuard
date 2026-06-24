@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-09",
+  "_systemPrompt": "The system prompt lives in system-prompt.txt (edit that file to tune tone/behaviour).",
+  "categories": [
+    { "id": "urgency_money", "desc": "Pressure to send money quickly, emergencies requiring immediate payment." },
+    { "id": "gift_card_crypto_wire", "desc": "Requests to pay via gift cards, cryptocurrency, or wire transfer." },
+    { "id": "impersonation", "desc": "Pretending to be a family member, often 'new number, it's me' / 'Hi Mom this is my new number'." },
+    { "id": "grandparent", "desc": "Caller claims to be a grandchild in trouble (jail, hospital, accident) needing money." },
+    { "id": "romance", "desc": "Affection from a stranger leading toward requests for money or gifts." },
+    { "id": "fake_authority", "desc": "Impersonating a bank, government, tax office, police, or utility to demand payment or details." },
+    { "id": "account_takeover", "desc": "Asking for a verification/OTP code 'you just received', or to move to another app." },
+    { "id": "malicious_link", "desc": "Links to fake login pages, prize claims, parcel-redelivery, or malware." }
+  ],
+  "instructions": "Return ONLY a JSON object (no prose, no markdown) with exactly these keys: risk (one of \"low\", \"medium\", \"high\"), category (one of the category ids above, or \"none\" if no scam, or \"other\"), trigger (a short quote or element from the message that drove the verdict; empty string if none), plain_reason (one warm, jargon-free sentence an older adult can understand, e.g. \"This message is pressuring you to send money quickly — a common scam.\"). If the message is harmless, use risk \"low\", category \"none\".",
+  "thresholds": { "notifyAtOrAbove": "medium" }
+}

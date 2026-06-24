@@ -1,0 +1,52 @@
+appId: app.whatsguard.desktop
+productName: WhatsGuard
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**
+  - package.json
+
+# Ship the native sidecar + OTA config into Contents/Resources/{bin,config}.
+# These land OUTSIDE the asar, and being inside the .app they are deep-signed by
+# @electron/osx-sign with the entitlements below.
+extraResources:
+  - from: resources/bin
+    to: bin
+    filter: ['**/*']
+  - from: resources/config
+    to: config
+    filter: ['**/*']
+
+mac:
+  category: public.app-category.utilities
+  # arm64-only for MVP: the bundled llama-server is Apple-Silicon. Building x64
+  # too would ship a broken binary AND make parallel dmg builds fight over the
+  # /Volumes/WhatsGuard mount (hdiutil detach race). Add x64 when we bundle an
+  # Intel llama-server; add the zip target when Phase 6 wires the auto-updater.
+  target:
+    - target: dmg
+      arch: [arm64]
+  # Developer ID signing + hardened runtime → silent Gatekeeper once notarized.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # The SAME entitlements are applied to the app and inherited by the nested
+  # llama-server binary, so the Metal backend isn't killed by taskgated.
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Notarization is OFF by default so local credential-less builds succeed.
+  # For DISTRIBUTION, set WG_NOTARIZE=1 with APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD
+  # + APPLE_TEAM_ID (or APPLE_API_KEY/APPLE_API_KEY_ID/APPLE_API_ISSUER) in the
+  # environment — the pack:mac:release script enables it (see package.json).
+  notarize: false
+  extendInfo:
+    NSUserNotificationsUsageDescription: WhatsGuard notifies you when it detects a likely scam.
+
+dmg:
+  title: WhatsGuard
+  # iconSize/contents can be themed later.
+
+# Model updates ship on their own channel — never re-download the model for an
+# app patch (see Phase 6). The model is NOT packaged into the installer.
+publish: null

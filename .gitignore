@@ -1,0 +1,21 @@
+node_modules/
+out/
+dist/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Editor / tool local state
+.claude/settings.local.json
+
+# Stale cache from the former wwebjs/puppeteer engine (now on Baileys)
+.wwebjs_cache/
+
+# Bundled model weights & binaries are pulled on first run / CI — never commit
+resources/bin/llama-server
+resources/bin/*.dylib
+resources/models/
+*.gguf
+
+# Local runtime data
+.whatsguard-data/

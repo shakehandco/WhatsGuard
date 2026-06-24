@@ -1,0 +1,41 @@
+{
+  "_comment": "Per-tier text model + multimodal projector (mmproj). SHA-256 values are MANDATORY — ensureModel() refuses any entry with an empty sha256, so a model is never installed unverified. E4B is filled from ggml-org/gemma-4-E4B-it-GGUF; E2B/12B left for when those tiers are wired.",
+  "tiers": {
+    "e2b": {
+      "model": {
+        "url": "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
+        "sha256": "",
+        "sizeBytes": 0
+      },
+      "mmproj": {
+        "url": "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/mmproj-gemma-4-E2B-it-Q8_0.gguf",
+        "sha256": "",
+        "sizeBytes": 0
+      }
+    },
+    "e4b": {
+      "model": {
+        "url": "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
+        "sha256": "90ce98129eb3e8cc57e62433d500c97c624b1e3af1fcc85dd3b55ad7e0313e9f",
+        "sizeBytes": 5335289824
+      },
+      "mmproj": {
+        "url": "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/mmproj-gemma-4-E4B-it-Q8_0.gguf",
+        "sha256": "51d4b7fd825e4569f746b200fccc5332bf914e8ef7cbe447272ce4fec6df3db6",
+        "sizeBytes": 559874528
+      }
+    },
+    "12b": {
+      "model": {
+        "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/gemma-4-12B-it-Q4_K_M.gguf",
+        "sha256": "",
+        "sizeBytes": 0
+      },
+      "mmproj": {
+        "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/mmproj-gemma-4-12B-it-Q8_0.gguf",
+        "sha256": "",
+        "sizeBytes": 0
+      }
+    }
+  }
+}

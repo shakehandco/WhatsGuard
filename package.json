@@ -1,0 +1,35 @@
+{
+  "name": "whatsguard",
+  "version": "0.1.0",
+  "description": "Privacy-preserving, on-device elder-fraud detection for WhatsApp.",
+  "author": "WhatsGuard",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "./out/main/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "npm run typecheck:node",
+    "start": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pack:mac": "npm run build && electron-builder --mac --publish never",
+    "pack:mac:release": "npm run build && electron-builder --mac -c.mac.notarize=true --publish never"
+  },
+  "dependencies": {
+    "baileys": "^7.0.0-rc13",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.6",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    />
+    <title>WhatsGuard</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <!-- First-run wizard (rendered by wizard.ts) -->
+    <div id="wizard" hidden></div>
+
+    <!-- Main dashboard (shown once onboarded) -->
+    <main id="dashboard" hidden>
+      <header>
+        <div class="header-row">
+          <h1>WhatsGuard</h1>
+          <select id="lang-select" aria-label="Language"></select>
+        </div>
+        <p class="tagline" id="tagline">Everything stays on your computer.</p>
+      </header>
+
+      <section id="status-card" class="card">
+        <div id="status-line">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">Starting…</span>
+        </div>
+        <div id="qr-area" hidden>
+          <p id="qr-instructions"></p>
+          <img id="qr-img" alt="WhatsApp linking QR code" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="alerts-title">Alerts</h2>
+        <ul id="alerts-list"></ul>
+        <p id="alerts-empty" class="muted">No warnings yet. You're all clear.</p>
+      </section>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

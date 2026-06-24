@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Entitlements for the hardened runtime, applied to the app AND inherited by
+    nested executables (notably the bundled llama-server sidecar).
+
+    Without disable-library-validation + allow-unsigned-executable-memory, the
+    macOS hardened runtime kills llama.cpp's Metal backend on Apple Silicon
+    (dynamic shader compilation / JIT + aggressive mmap), so llm-supervisor.ts's
+    spawned process dies instantly and the app appears broken.
+  -->
+
+  <!-- llama.cpp Metal JIT-compiles GPU shaders at runtime. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+
+  <!-- Let the app load the sidecar / dylibs not signed by our Team ID. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+
+  <!-- Needed by some llama.cpp builds that read DYLD_* / env at launch. -->
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+</dict>
+</plist>
