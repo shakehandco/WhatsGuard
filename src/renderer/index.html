@@ -22,24 +22,79 @@
           <select id="lang-select" aria-label="Language"></select>
         </div>
         <p class="tagline" id="tagline">Everything stays on your computer.</p>
+        <nav class="tabs" role="tablist">
+          <button id="tab-home-btn" class="tab" type="button" role="tab" aria-selected="true">
+            Home
+          </button>
+          <button id="tab-settings-btn" class="tab" type="button" role="tab" aria-selected="false">
+            Settings
+          </button>
+        </nav>
       </header>
 
-      <section id="status-card" class="card">
-        <div id="status-line">
-          <span class="dot" id="status-dot"></span>
-          <span id="status-text">Starting…</span>
-        </div>
-        <div id="qr-area" hidden>
-          <p id="qr-instructions"></p>
-          <img id="qr-img" alt="WhatsApp linking QR code" />
-        </div>
-      </section>
+      <!-- Home tab: live status + alerts -->
+      <div id="tab-home" class="tab-panel" role="tabpanel">
+        <section id="status-card" class="card">
+          <div id="status-line">
+            <span class="dot" id="status-dot"></span>
+            <span id="status-text">Starting…</span>
+          </div>
+          <div id="qr-area" hidden>
+            <p id="qr-instructions"></p>
+            <img id="qr-img" alt="WhatsApp linking QR code" />
+          </div>
+        </section>
 
-      <section class="card">
-        <h2 id="alerts-title">Alerts</h2>
-        <ul id="alerts-list"></ul>
-        <p id="alerts-empty" class="muted">No warnings yet. You're all clear.</p>
-      </section>
+        <section class="card">
+          <h2 id="alerts-title">Alerts</h2>
+          <ul id="alerts-list"></ul>
+          <p id="alerts-empty" class="muted">No warnings yet. You're all clear.</p>
+        </section>
+      </div>
+
+      <!-- Settings tab: trusted contacts, system info, shut down -->
+      <div id="tab-settings" class="tab-panel" role="tabpanel" hidden>
+        <!-- Trusted contacts (safe list) -->
+        <section class="card">
+          <h2 id="safelist-title">Trusted contacts</h2>
+          <p id="safelist-lead" class="muted"></p>
+          <div class="safelist-add">
+            <input id="safelist-input" type="tel" autocomplete="off" inputmode="tel" />
+            <button id="safelist-add-btn" type="button"></button>
+          </div>
+          <p id="safelist-error" class="field-error" hidden></p>
+          <ul id="safelist-list"></ul>
+          <p id="safelist-empty" class="muted"></p>
+          <p id="safelist-more" class="muted" hidden></p>
+        </section>
+
+        <!-- System info -->
+        <section class="card">
+          <h2 id="sysinfo-title">System info</h2>
+          <dl id="sysinfo-list" class="sysinfo"></dl>
+        </section>
+
+        <!-- Shut down -->
+        <section class="card quit-card">
+          <h2 id="quit-title">Shut down</h2>
+          <p id="quit-lead" class="muted"></p>
+          <button id="quit-btn" type="button" class="danger"></button>
+        </section>
+      </div>
+
+      <!-- Company info -->
+      <footer id="company-info">
+        <p id="company-credit"></p>
+        <p id="company-links">
+          <a id="company-site" href="https://www.aipedals.com" target="_blank" rel="noopener"
+            >www.aipedals.com</a
+          >
+          <span class="sep">·</span>
+          <a id="company-email" href="mailto:info@aipedals.com" target="_blank" rel="noopener"
+            >info@aipedals.com</a
+          >
+        </p>
+      </footer>
     </main>
     <script type="module" src="./src/main.ts"></script>
   </body>

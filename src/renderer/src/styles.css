@@ -170,6 +170,191 @@ header h1 {
   color: var(--muted);
 }
 
+/* ---- Tabs ---- */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 18px 0 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tab {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  margin-top: 18px;
+}
+
+/* ---- Trusted contacts (safe list) ---- */
+.safelist-add {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+
+#safelist-input {
+  flex: 1;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+#safelist-add-btn {
+  font-size: 15px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+#safelist-add-btn:hover {
+  filter: brightness(1.08);
+}
+
+.field-error {
+  color: var(--high);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+#safelist-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.safelist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 4px;
+  border-bottom: 1px solid #eef0f2;
+}
+
+.safelist-num {
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+}
+
+.link-danger,
+.link {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 6px;
+}
+
+.link-danger {
+  color: var(--high);
+}
+
+.link {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#safelist-more {
+  font-size: 14px;
+  margin: 10px 0 0;
+}
+
+/* ---- System info ---- */
+.sysinfo {
+  margin: 0;
+}
+
+.sysinfo dt {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.sysinfo dt:first-child {
+  margin-top: 0;
+}
+
+.sysinfo dd {
+  margin: 2px 0 0;
+  font-size: 16px;
+  word-break: break-word;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sysinfo-path {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+/* ---- Shut down ---- */
+.quit-card {
+  text-align: center;
+}
+
+button.danger {
+  font-size: 16px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 10px;
+  background: var(--high);
+  color: #fff;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+button.danger:hover {
+  filter: brightness(1.08);
+}
+
+/* ---- Company info footer ---- */
+#company-info {
+  text-align: center;
+  margin-top: 8px;
+  padding: 8px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+#company-info p {
+  margin: 2px 0;
+}
+
+#company-info a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+#company-info a:hover {
+  text-decoration: underline;
+}
+
+#company-info .sep {
+  margin: 0 6px;
+  opacity: 0.6;
+}
+
 /* ---- First-run wizard ---- */
 #wizard {
   min-height: 100vh;

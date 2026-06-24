@@ -7,7 +7,8 @@ import type {
   HardwareInfo,
   OnboardingState,
   DownloadProgress,
-  ModelStatus
+  ModelStatus,
+  SystemInfo
 } from '@shared/types'
 import type { Lang } from '@shared/i18n'
 
@@ -31,6 +32,10 @@ const api: WhatsGuardApi = {
   addSafeNumber: (num: string) => ipcRenderer.invoke(IPC.addSafeNumber, num),
   removeSafeNumber: (num: string) => ipcRenderer.invoke(IPC.removeSafeNumber, num),
   getHardwareInfo: (): Promise<HardwareInfo> => ipcRenderer.invoke(IPC.getHardwareInfo),
+
+  getSystemInfo: (): Promise<SystemInfo> => ipcRenderer.invoke(IPC.getSystemInfo),
+  openLogs: () => ipcRenderer.invoke(IPC.openLogs),
+  quitApp: () => ipcRenderer.invoke(IPC.quitApp),
 
   getOnboardingState: (): Promise<OnboardingState> => ipcRenderer.invoke(IPC.getOnboardingState),
   recordConsent: () => ipcRenderer.invoke(IPC.recordConsent),

@@ -52,6 +52,39 @@ const en: Dict = {
   alerts_dismiss: 'This was fine',
   alerts_unknown: 'Unknown sender',
 
+  tab_home: 'Home',
+  tab_settings: 'Settings',
+
+  safelist_title: 'Trusted contacts',
+  safelist_lead: 'Messages from these numbers are never checked. Add family and friends you trust.',
+  safelist_placeholder: 'Country code + number, e.g. +44 7700 900123',
+  safelist_add: 'Add',
+  safelist_remove: 'Remove',
+  safelist_empty: 'No trusted contacts yet.',
+  safelist_more: '+{count} more',
+  safelist_invalid: 'Please enter the country code and number, e.g. +44 7700 900123.',
+
+  sysinfo_title: 'System info',
+  sysinfo_model: 'Protection model',
+  sysinfo_model_missing: 'Not downloaded',
+  sysinfo_whatsapp: 'WhatsApp number',
+  sysinfo_whatsapp_unlinked: 'Not linked yet',
+  sysinfo_rules_updated: 'Scam rules updated',
+  sysinfo_version: 'App version',
+  sysinfo_logs: 'Logs folder',
+  sysinfo_open: 'Open',
+  model_health_ready: 'Active',
+  model_health_starting: 'Starting…',
+  model_health_stopped: 'Idle',
+  model_health_cooldown: 'Paused after error',
+
+  quit_title: 'Shut down',
+  quit_lead: 'Stop checking messages and close WhatsGuard completely.',
+  quit_button: 'Quit WhatsGuard',
+  quit_confirm: 'Stop protection and quit WhatsGuard now?',
+
+  company_credit: 'Developed by AI Pedals',
+
   wiz_welcome_title: 'Welcome to WhatsGuard',
   wiz_welcome_lead:
     'WhatsGuard quietly checks the WhatsApp messages you receive on this computer and warns you if one looks like a scam.',
@@ -114,6 +147,39 @@ const zh: Dict = {
   alerts_dismiss: '这是安全的',
   alerts_unknown: '未知发件人',
 
+  tab_home: '主页',
+  tab_settings: '设置',
+
+  safelist_title: '信任的联系人',
+  safelist_lead: '来自这些号码的消息不会被检查。请添加您信任的家人和朋友。',
+  safelist_placeholder: '国家代码 + 号码，例如 +44 7700 900123',
+  safelist_add: '添加',
+  safelist_remove: '移除',
+  safelist_empty: '尚无信任的联系人。',
+  safelist_more: '还有 {count} 个',
+  safelist_invalid: '请输入国家代码和号码，例如 +44 7700 900123。',
+
+  sysinfo_title: '系统信息',
+  sysinfo_model: '防护模型',
+  sysinfo_model_missing: '尚未下载',
+  sysinfo_whatsapp: 'WhatsApp 号码',
+  sysinfo_whatsapp_unlinked: '尚未连接',
+  sysinfo_rules_updated: '诈骗规则更新于',
+  sysinfo_version: '应用版本',
+  sysinfo_logs: '日志文件夹',
+  sysinfo_open: '打开',
+  model_health_ready: '运行中',
+  model_health_starting: '正在启动…',
+  model_health_stopped: '空闲',
+  model_health_cooldown: '出错后已暂停',
+
+  quit_title: '关闭',
+  quit_lead: '停止检查消息并完全关闭 WhatsGuard。',
+  quit_button: '退出 WhatsGuard',
+  quit_confirm: '现在停止保护并退出 WhatsGuard 吗？',
+
+  company_credit: '由 AI Pedals 开发',
+
   wiz_welcome_title: '欢迎使用 WhatsGuard',
   wiz_welcome_lead:
     'WhatsGuard 会在这台电脑上悄悄检查您收到的 WhatsApp 消息，如果发现可能是诈骗就会提醒您。',
@@ -172,6 +238,39 @@ const id: Dict = {
   alerts_empty: 'Belum ada peringatan. Anda aman.',
   alerts_dismiss: 'Ini aman',
   alerts_unknown: 'Pengirim tidak dikenal',
+
+  tab_home: 'Beranda',
+  tab_settings: 'Pengaturan',
+
+  safelist_title: 'Kontak tepercaya',
+  safelist_lead: 'Pesan dari nomor ini tidak pernah diperiksa. Tambahkan keluarga dan teman yang Anda percaya.',
+  safelist_placeholder: 'Kode negara + nomor, mis. +44 7700 900123',
+  safelist_add: 'Tambah',
+  safelist_remove: 'Hapus',
+  safelist_empty: 'Belum ada kontak tepercaya.',
+  safelist_more: '+{count} lainnya',
+  safelist_invalid: 'Masukkan kode negara dan nomor, mis. +44 7700 900123.',
+
+  sysinfo_title: 'Info sistem',
+  sysinfo_model: 'Model perlindungan',
+  sysinfo_model_missing: 'Belum diunduh',
+  sysinfo_whatsapp: 'Nomor WhatsApp',
+  sysinfo_whatsapp_unlinked: 'Belum tertaut',
+  sysinfo_rules_updated: 'Aturan penipuan diperbarui',
+  sysinfo_version: 'Versi aplikasi',
+  sysinfo_logs: 'Folder log',
+  sysinfo_open: 'Buka',
+  model_health_ready: 'Aktif',
+  model_health_starting: 'Memulai…',
+  model_health_stopped: 'Siaga',
+  model_health_cooldown: 'Dijeda setelah kesalahan',
+
+  quit_title: 'Matikan',
+  quit_lead: 'Berhenti memeriksa pesan dan tutup WhatsGuard sepenuhnya.',
+  quit_button: 'Keluar dari WhatsGuard',
+  quit_confirm: 'Hentikan perlindungan dan keluar dari WhatsGuard sekarang?',
+
+  company_credit: 'Dikembangkan oleh AI Pedals',
 
   wiz_welcome_title: 'Selamat datang di WhatsGuard',
   wiz_welcome_lead:

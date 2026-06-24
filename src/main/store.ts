@@ -28,10 +28,18 @@ export class Store {
   private readonly file: string
   private data: StoreData
 
+  private readonly dir: string
+
   constructor(dir = join(app.getPath('userData'), 'data')) {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    this.dir = dir
     this.file = join(dir, 'whatsguard.json')
     this.data = this.load()
+  }
+
+  /** Absolute path of the folder holding the on-disk store. */
+  dataDir(): string {
+    return this.dir
   }
 
   private load(): StoreData {

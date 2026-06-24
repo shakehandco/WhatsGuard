@@ -10,9 +10,11 @@ import { Store } from './store'
 import {
   DEFAULT_TIER,
   detectHardware,
+  effectiveTier,
   ensureModel,
   isModelPresent,
   llamaBinaryPath,
+  modelFileName,
   mmprojPath,
   modelPath
 } from './model-manager'
@@ -43,6 +45,8 @@ let tray: TrayController | undefined
 let isQuitting = false
 let bridgeStarted = false
 let currentLang: Lang = 'en'
+// Date the active scam-rules config was last updated (shown in System info).
+let scamRulesUpdatedAt = ''
 const history = new ChatHistory()
 
 function showWindow(): void {
@@ -213,6 +217,26 @@ function registerIpc(): void {
   ipcMain.handle(IPC.addSafeNumber, (_e, num: string) => store?.addSafeNumber(num))
   ipcMain.handle(IPC.removeSafeNumber, (_e, num: string) => store?.removeSafeNumber(num))
   ipcMain.handle(IPC.getHardwareInfo, () => detectHardware())
+  ipcMain.handle(IPC.getSystemInfo, () => {
+    const tier = effectiveTier()
+    return {
+      appVersion: app.getVersion(),
+      modelName: modelFileName(tier),
+      modelTier: tier,
+      modelPresent: isModelPresent(tier),
+      modelHealth: supervisor?.getHealth() ?? 'stopped',
+      whatsappNumber: bridge?.getNumber() ?? null,
+      scamRulesUpdatedAt,
+      logsDir: logsDir(),
+      dataDir: store?.dataDir() ?? ''
+    }
+  })
+  ipcMain.handle(IPC.openLogs, () => void shell.openPath(logsDir()))
+  ipcMain.handle(IPC.quitApp, () => {
+    // Graceful shutdown: before-quit stops the model + bridge + tray cleanly.
+    isQuitting = true
+    app.quit()
+  })
   ipcMain.handle(IPC.getLanguage, () => currentLang)
   ipcMain.handle(IPC.setLanguage, (_e, lang: Lang) => {
     currentLang = lang
@@ -229,6 +253,7 @@ app.whenReady().then(async () => {
   // Event-driven local LLM pipeline. MVP ships a single tier (E4B). Model may be
   // absent until the first-run wizard downloads it; preflight degrades gracefully.
   const config = loadScamConfig()
+  scamRulesUpdatedAt = config.updatedAt
   logSystem('INFO', 'llm', `model tier: ${DEFAULT_TIER}`)
   supervisor = new LlamaSupervisor({
     binaryPath: llamaBinaryPath(),

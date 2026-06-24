@@ -35,6 +35,11 @@ export function llamaBinaryPath(): string {
     : join(app.getAppPath(), 'resources', 'bin', name)
 }
 
+/** The GGUF filename for a tier — used as the local LLM's display name in the UI. */
+export function modelFileName(tier: ModelTier): string {
+  return MODEL_FILES[tier]
+}
+
 /** Path to the text GGUF for a tier, under userData/models. */
 export function modelPath(tier: ModelTier): string {
   return join(app.getPath('userData'), 'models', MODEL_FILES[tier])

@@ -62,6 +62,7 @@ export class WhatsAppBridge {
   private state: SessionState = { status: 'initializing' }
   private reconnectAttempts = 0
   private closing = false
+  private linkedNumber: string | null = null
 
   constructor(opts: BridgeOptions) {
     this.opts = opts
@@ -69,6 +70,11 @@ export class WhatsAppBridge {
 
   getState(): SessionState {
     return this.state
+  }
+
+  /** The linked account's phone number in +E.164 form, or null until linked. */
+  getNumber(): string | null {
+    return this.linkedNumber
   }
 
   private setState(status: SessionStatus, extra: Partial<SessionState> = {}): void {
@@ -123,6 +129,13 @@ export class WhatsAppBridge {
 
     if (connection === 'open') {
       this.reconnectAttempts = 0
+      // sock.user is populated once the socket opens — capture the linked number
+      // (id looks like "447700900123:12@s.whatsapp.net"; we want the digits).
+      const rawId = this.sock?.user?.id
+      if (rawId) {
+        const digits = rawId.split(':')[0].split('@')[0].replace(/\D/g, '')
+        this.linkedNumber = digits ? `+${digits}` : null
+      }
       this.setState('ready')
     }
 

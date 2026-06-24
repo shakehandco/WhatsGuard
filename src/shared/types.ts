@@ -138,6 +138,31 @@ export interface HardwareInfo {
   recommendedTier: ModelTier
 }
 
+/** Health of the local llama-server, surfaced in the system-info card. */
+export type ModelHealth = 'stopped' | 'starting' | 'ready' | 'cooldown'
+
+/** Useful, mostly-static runtime facts shown in the System info card. */
+export interface SystemInfo {
+  /** App version from package.json. */
+  appVersion: string
+  /** Display name of the local LLM (the GGUF model file in use). */
+  modelName: string
+  /** Model tier actually running (e2b/e4b/12b). */
+  modelTier: ModelTier
+  /** Whether the model file is downloaded. */
+  modelPresent: boolean
+  /** Current llama-server state. */
+  modelHealth: ModelHealth
+  /** The linked WhatsApp number in +E.164 form, or null until linked. */
+  whatsappNumber: string | null
+  /** Date the bundled scam-rules config was last updated (OTA-updatable). */
+  scamRulesUpdatedAt: string
+  /** Absolute path to the logs folder. */
+  logsDir: string
+  /** Absolute path to the on-disk data/store folder. */
+  dataDir: string
+}
+
 /** Typed API surface exposed to the renderer via the preload bridge. */
 export interface WhatsGuardApi {
   getSessionState(): Promise<SessionState>
@@ -150,6 +175,11 @@ export interface WhatsGuardApi {
   addSafeNumber(num: string): Promise<void>
   removeSafeNumber(num: string): Promise<void>
   getHardwareInfo(): Promise<HardwareInfo>
+
+  // System info / lifecycle
+  getSystemInfo(): Promise<SystemInfo>
+  openLogs(): Promise<void>
+  quitApp(): Promise<void>
 
   // First-run onboarding
   getOnboardingState(): Promise<OnboardingState>
