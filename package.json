@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Privacy-preserving, on-device elder-fraud detection for WhatsApp.",
   "author": "WhatsGuard",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "private": true,
   "main": "./out/main/index.js",
   "type": "commonjs",
