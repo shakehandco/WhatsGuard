@@ -1,5 +1,19 @@
 # WhatsGuard
 
+## Summary  
+
+Host an antivirus-like application locally and protect your loved ones from scams and phishing links.  
+MacOS installer included ready-to-use in 3 mins. 
+
+website : https://www.whatsguard.org  
+Steup guide video : https://vimeo.com/1203142405?share=copy&fl=sv&fe=ci
+
+Hosten Sie eine antivirenähnliche Anwendung lokal und schützen Sie Ihre Liebsten vor Betrug und Phishing-Links.  
+Hébergez localement une application de type antivirus et protégez vos proches contre les arnaques et les liens de phishing.  
+在本機架設類似防毒軟體的應用程式，保護你關心的人遠離詐騙與釣魚連結。  
+Jalankan aplikasi serupa antivirus secara lokal dan lindungi orang-orang tercinta Anda dari penipuan dan tautan phishing.  
+Aloja localmente una aplicación similar a un antivirus y protege a tus seres queridos de estafas y enlaces de phishing.  
+
 **On-device WhatsApp scam detection.** WhatsGuard is a desktop app that links to
 your WhatsApp and quietly flags likely scam messages using a local AI model —
 **everything stays on your computer.** No message content ever leaves the device.
