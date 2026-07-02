@@ -68,10 +68,29 @@
           <p id="safelist-more" class="muted" hidden></p>
         </section>
 
+        <!-- Protection model -->
+        <section class="card">
+          <h2 id="model-title">Protection model</h2>
+          <p id="model-lead" class="muted"></p>
+          <div id="model-opts" class="model-opts"></div>
+          <div id="model-progress-wrap" hidden>
+            <div class="wiz-bar"><div id="model-bar" class="wiz-bar-fill"></div></div>
+            <p id="model-pct" class="muted"></p>
+          </div>
+          <p id="model-status" class="muted" hidden></p>
+        </section>
+
         <!-- System info -->
         <section class="card">
           <h2 id="sysinfo-title">System info</h2>
           <dl id="sysinfo-list" class="sysinfo"></dl>
+        </section>
+
+        <!-- Disconnect & erase data (factory reset) -->
+        <section class="card quit-card">
+          <h2 id="disconnect-title">Disconnect &amp; erase data</h2>
+          <p id="disconnect-lead" class="muted"></p>
+          <button id="disconnect-btn" type="button" class="danger"></button>
         </section>
 
         <!-- Shut down -->

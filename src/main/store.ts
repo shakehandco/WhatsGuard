@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import type { VerdictRecord } from '@shared/types'
+import type { ModelTier, VerdictRecord } from '@shared/types'
 import type { Lang } from '@shared/i18n'
 
 /**
@@ -18,9 +18,17 @@ interface StoreData {
   consentAt: string | null
   /** Chosen UI/LLM language; null means "not set, use OS locale". */
   language: Lang | null
+  /** Chosen model tier; null means "not set, use the hardware recommendation". */
+  modelTier: ModelTier | null
 }
 
-const DEFAULT_DATA: StoreData = { safeList: [], verdicts: [], consentAt: null, language: null }
+const DEFAULT_DATA: StoreData = {
+  safeList: [],
+  verdicts: [],
+  consentAt: null,
+  language: null,
+  modelTier: null
+}
 /** Cap stored verdicts so the file can't grow unbounded. */
 const MAX_VERDICTS = 1000
 
@@ -66,6 +74,17 @@ export class Store {
 
   setLanguage(lang: Lang): void {
     this.data.language = lang
+    this.persist()
+  }
+
+  // --- model tier ---
+
+  getModelTier(): ModelTier | null {
+    return this.data.modelTier
+  }
+
+  setModelTier(tier: ModelTier): void {
+    this.data.modelTier = tier
     this.persist()
   }
 
@@ -127,6 +146,16 @@ export class Store {
   /** Wipe all stored verdicts (user purge). Safe-list is preserved. */
   purgeVerdicts(): void {
     this.data.verdicts = []
+    this.persist()
+  }
+
+  /**
+   * Full factory reset: wipe verdicts, safe-list, consent, and language. Resets
+   * the live instance (not an external file delete) so a later write can't
+   * re-persist stale in-memory data. After this, the app reverts to first-run.
+   */
+  reset(): void {
+    this.data = { ...DEFAULT_DATA }
     this.persist()
   }
 }

@@ -58,6 +58,18 @@ export function isSafeListed(sender: string, safeList: string[]): boolean {
 }
 
 /**
+ * True if a message's sender is trusted. Matches the safe-list against the
+ * sender id and, for LID-routed chats, the resolved phone number — a trusted
+ * number must work regardless of routing.
+ */
+export function isSafeListedSender(msg: IncomingMessage, safeList: string[]): boolean {
+  return (
+    isSafeListed(msg.sender, safeList) ||
+    (!!msg.senderPn && isSafeListed(msg.senderPn, safeList))
+  )
+}
+
+/**
  * Pure pre-filter. Runs before any LLM call. Drops:
  *   (a) the elder's own outgoing messages,
  *   (b) safe-listed senders (trusted family/contacts),
@@ -69,7 +81,7 @@ export function filterMessage(msg: IncomingMessage, safeList: string[]): FilterR
   if (msg.fromMe) {
     return { pass: false, reason: 'from_me' }
   }
-  if (isSafeListed(msg.sender, safeList)) {
+  if (isSafeListedSender(msg, safeList)) {
     return { pass: false, reason: 'safe_listed_sender' }
   }
   if (isSystemType(msg.type)) {

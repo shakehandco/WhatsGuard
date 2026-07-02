@@ -42,6 +42,17 @@ mac:
   notarize: false
   extendInfo:
     NSUserNotificationsUsageDescription: WhatsGuard notifies you when it detects a likely scam.
+    # Declare the UI languages so macOS recognises them (otherwise app.getLocale()
+    # falls back to English in a packaged build). Detection also uses the OS's
+    # preferred-language list in code, but this keeps the bundle honest.
+    CFBundleAllowMixedLocalizations: true
+    CFBundleLocalizations:
+      - en
+      - zh-Hans
+      - zh-Hant
+      - id
+      - de
+      - es
 
 dmg:
   title: WhatsGuard

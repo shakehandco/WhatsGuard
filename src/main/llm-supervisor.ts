@@ -213,7 +213,7 @@ export class LlamaSupervisor {
     })
   }
 
-  private async waitForHealth(aborted: () => boolean, timeoutMs = 60_000): Promise<void> {
+  private async waitForHealth(aborted: () => boolean, timeoutMs = 180_000): Promise<void> {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
       if (aborted()) return

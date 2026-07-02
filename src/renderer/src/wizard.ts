@@ -1,4 +1,4 @@
-import type { OnboardingState, SessionState } from '@shared/types'
+import { SELECTABLE_MODELS, type ModelTier, type OnboardingState, type SessionState } from '@shared/types'
 import { t, LANGS, type Lang } from '@shared/i18n'
 
 const wg = (): Window['whatsguard'] => window.whatsguard
@@ -15,6 +15,8 @@ export function runWizard(initial: OnboardingState, initialLang: Lang, onComplet
   const root = byId('wizard')
   let modelReady = initial.modelPresent
   let lang = initialLang
+  let chosenTier: ModelTier = 'e4b'
+  let recommendedTier: ModelTier = 'e4b'
 
   const screen = (html: string): void => {
     root.innerHTML = `<div class="wiz-card">${html}</div>`
@@ -63,14 +65,34 @@ export function runWizard(initial: OnboardingState, initialLang: Lang, onComplet
     }
   }
 
-  function setup(): void {
+  async function setup(): Promise<void> {
     if (modelReady) {
       linking()
       return
     }
+    try {
+      const hw = await wg().getHardwareInfo()
+      recommendedTier = hw.recommendedTier === '12b' ? '12b' : 'e4b'
+      chosenTier = recommendedTier
+    } catch {
+      /* keep the 4B default if hardware can't be read */
+    }
+    const modelOpts = SELECTABLE_MODELS.map((m) => {
+      const rec = m.tier === recommendedTier ? ` <span class="model-rec">${t(lang, 'wiz_model_recommended')}</span>` : ''
+      return `
+        <label class="model-opt">
+          <input type="radio" name="w-model" value="${m.tier}"${m.tier === chosenTier ? ' checked' : ''} />
+          <span class="model-opt-body">
+            <span class="model-opt-name">${m.label}${rec}</span>
+            <span class="model-opt-desc muted">${t(lang, `model_blurb_${m.tier}`)} · ${t(lang, 'wiz_model_spec', { size: m.downloadGB, ram: m.minRamGB })}</span>
+          </span>
+        </label>`
+    }).join('')
     screen(`
       <h1>${t(lang, 'wiz_setup_title')}</h1>
       <p class="lead">${t(lang, 'wiz_setup_lead')}</p>
+      <p class="model-choose">${t(lang, 'wiz_model_choose')}</p>
+      <div class="model-opts">${modelOpts}</div>
       <div id="w-progress-wrap" hidden>
         <div class="wiz-bar"><div id="w-bar" class="wiz-bar-fill"></div></div>
         <p id="w-pct" class="muted">${t(lang, 'wiz_setup_starting')}</p>
@@ -79,6 +101,11 @@ export function runWizard(initial: OnboardingState, initialLang: Lang, onComplet
       <button id="w-dl" class="wiz-btn">${t(lang, 'wiz_setup_download')}</button>
       <button id="w-skip" class="wiz-skip">${t(lang, 'wiz_setup_skip')}</button>
     `)
+    root.querySelectorAll<HTMLInputElement>('input[name="w-model"]').forEach((r) => {
+      r.onchange = (): void => {
+        chosenTier = r.value as ModelTier
+      }
+    })
     const dl = byId<HTMLButtonElement>('w-dl')
     const wrap = byId('w-progress-wrap')
     const bar = byId('w-bar')
@@ -112,7 +139,7 @@ export function runWizard(initial: OnboardingState, initialLang: Lang, onComplet
       dl.disabled = true
       err.hidden = true
       wrap.hidden = false
-      void wg().startModelDownload()
+      void wg().startModelDownload(chosenTier)
     }
     // Always-available escape: don't trap the user if the download errors or
     // stalls. Any in-flight download keeps running in the background; if it

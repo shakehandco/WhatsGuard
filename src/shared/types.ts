@@ -10,8 +10,15 @@ export interface IncomingMessage {
   id: string
   /** Chat/conversation id this message belongs to. */
   chatId: string
-  /** Sender's WhatsApp id (e.g. "1234567890@c.us"). */
+  /** Sender's WhatsApp id (e.g. "1234567890@c.us", or an opaque "…@lid"). */
   sender: string
+  /**
+   * Sender's phone-number jid, resolved from the LID when `sender` is a "@lid".
+   * Lets the safe-list match real numbers even though WhatsApp routes many 1:1
+   * chats by an opaque LID. Undefined when sender is already a phone number or
+   * the mapping isn't known yet.
+   */
+  senderPn?: string
   /** Human-readable contact/push name, if known. */
   senderName: string
   /** Plain text body. Empty for pure-media messages. */
@@ -132,6 +139,27 @@ export interface ModelStatus {
 
 export type ModelTier = 'e2b' | 'e4b' | '12b'
 
+/** Display metadata for a user-selectable model. Renderer-safe (no Node imports). */
+export interface ModelTierInfo {
+  tier: ModelTier
+  /** Brand label shown in the UI, e.g. "Gemma 4 · 4B". Not translated. */
+  label: string
+  /** Approximate total download size in GB (model + projector), for UI hints. */
+  downloadGB: number
+  /** Recommended minimum system RAM in GB. */
+  minRamGB: number
+}
+
+/**
+ * The models a user may pick between (4B for most machines, 12B for powerful
+ * ones). E2B remains in {@link ModelTier} as a low-RAM fallback but is not
+ * user-selectable.
+ */
+export const SELECTABLE_MODELS: ModelTierInfo[] = [
+  { tier: 'e4b', label: 'Gemma 4 · 4B', downloadGB: 6, minRamGB: 8 },
+  { tier: '12b', label: 'Gemma 4 · 12B', downloadGB: 8, minRamGB: 16 }
+]
+
 export interface HardwareInfo {
   totalRamGB: number
   freeDiskGB: number
@@ -180,13 +208,21 @@ export interface WhatsGuardApi {
   getSystemInfo(): Promise<SystemInfo>
   openLogs(): Promise<void>
   quitApp(): Promise<void>
+  /** Unlink the WhatsApp number and erase all local data (factory reset). */
+  disconnect(): Promise<void>
 
   // First-run onboarding
   getOnboardingState(): Promise<OnboardingState>
   recordConsent(): Promise<void>
-  startModelDownload(): Promise<void>
+  /** Download (and select) a model tier; defaults to the current selection. */
+  startModelDownload(tier?: ModelTier): Promise<void>
   onModelProgress(cb: (p: DownloadProgress) => void): () => void
   onModelStatus(cb: (s: ModelStatus) => void): () => void
+
+  // Model selection
+  getModelTier(): Promise<ModelTier>
+  /** Switch the active model: downloads it if missing, then restarts inference. */
+  setModelTier(tier: ModelTier): Promise<void>
 
   // Language
   getLanguage(): Promise<Lang>

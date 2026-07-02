@@ -8,6 +8,7 @@ import type {
   OnboardingState,
   DownloadProgress,
   ModelStatus,
+  ModelTier,
   SystemInfo
 } from '@shared/types'
 import type { Lang } from '@shared/i18n'
@@ -36,10 +37,13 @@ const api: WhatsGuardApi = {
   getSystemInfo: (): Promise<SystemInfo> => ipcRenderer.invoke(IPC.getSystemInfo),
   openLogs: () => ipcRenderer.invoke(IPC.openLogs),
   quitApp: () => ipcRenderer.invoke(IPC.quitApp),
+  disconnect: () => ipcRenderer.invoke(IPC.disconnect),
 
   getOnboardingState: (): Promise<OnboardingState> => ipcRenderer.invoke(IPC.getOnboardingState),
   recordConsent: () => ipcRenderer.invoke(IPC.recordConsent),
-  startModelDownload: () => ipcRenderer.invoke(IPC.startModelDownload),
+  startModelDownload: (tier?: ModelTier) => ipcRenderer.invoke(IPC.startModelDownload, tier),
+  getModelTier: (): Promise<ModelTier> => ipcRenderer.invoke(IPC.getModelTier),
+  setModelTier: (tier: ModelTier) => ipcRenderer.invoke(IPC.setModelTier, tier),
   onModelProgress: (cb: (p: DownloadProgress) => void) => {
     const listener = (_e: unknown, p: DownloadProgress): void => cb(p)
     ipcRenderer.on(IPC.modelProgress, listener)

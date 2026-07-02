@@ -1,10 +1,10 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { statfs } from 'fs/promises'
+import { rm, statfs } from 'fs/promises'
 import { join } from 'path'
 import { IPC } from '@shared/ipc'
-import type { IncomingMessage, SessionState } from '@shared/types'
+import type { IncomingMessage, ModelTier, SessionState } from '@shared/types'
 import { WhatsAppBridge, sessionDataPath } from './whatsapp-bridge'
-import { filterMessage } from './message-filter'
+import { filterMessage, isSafeListedSender } from './message-filter'
 import { ChatHistory } from './chat-history'
 import { Store } from './store'
 import {
@@ -23,7 +23,7 @@ import { Classifier } from './classifier'
 import { LlamaSupervisor } from './llm-supervisor'
 import { RiskEngine } from './risk-engine'
 import { TrayController } from './tray'
-import { initLogs, logActivity, logSystem, logsDir, type ActivityEntry } from './logger'
+import { clearLogs, initLogs, logActivity, logSystem, logsDir, type ActivityEntry } from './logger'
 import { normalizeLang, type Lang } from '@shared/i18n'
 
 // Safety net: a stray async rejection (e.g. a transient Baileys socket error)
@@ -45,6 +45,9 @@ let tray: TrayController | undefined
 let isQuitting = false
 let bridgeStarted = false
 let currentLang: Lang = 'en'
+// Active model tier (4B/12B). Resolved at startup from the stored choice, the
+// hardware recommendation, or whatever model is already on disk.
+let currentTier: ModelTier = DEFAULT_TIER
 // Date the active scam-rules config was last updated (shown in System info).
 let scamRulesUpdatedAt = ''
 const history = new ChatHistory()
@@ -115,8 +118,12 @@ function activityBase(msg: IncomingMessage): Omit<ActivityEntry, 'decision'> {
 
 /** New incoming message → filter → classify (event-driven LLM) → risk decision. */
 function onIncomingMessage(msg: IncomingMessage): void {
+  const safeList = store?.getSafeList() ?? []
+  // Trusted contacts are fully private: never buffer them in history, never write
+  // them to the activity log, never analyse them. Bail before any of that.
+  if (isSafeListedSender(msg, safeList)) return
   history.record(msg)
-  const result = filterMessage(msg, store?.getSafeList() ?? [])
+  const result = filterMessage(msg, safeList)
   if (!result.pass) {
     logActivity({ ...activityBase(msg), decision: 'dropped', filterReason: result.reason })
     return
@@ -171,23 +178,66 @@ async function startProtection(): Promise<void> {
   }
 }
 
-/** First-run model download (E4B), streaming progress to the wizard. */
-async function runModelDownload(): Promise<void> {
+/**
+ * Factory reset: unlink the WhatsApp number and erase all local data. The user
+ * confirms in the renderer before this runs. The downloaded model is kept (it is
+ * not tied to the number and is costly to re-fetch). Afterwards the renderer
+ * reloads into the first-run wizard; re-consenting there restarts protection.
+ */
+async function disconnectAndReset(): Promise<void> {
+  logSystem('INFO', 'disconnect', 'user requested disconnect & erase')
+  await bridge?.disconnect() // unlink device (best-effort) + drop socket
+  await rm(sessionDataPath(), { recursive: true, force: true }) // WhatsApp session cache
+  clearLogs()
+  store?.reset() // verdicts + safe-list + consent + language
+  history.clear() // in-memory chat context
+
+  // Reset runtime state so the wizard's re-consent can start cleanly: a fresh,
+  // non-closing bridge with bridgeStarted cleared (otherwise startProtection
+  // early-returns and the QR never appears).
+  bridgeStarted = false
+  bridge = new WhatsAppBridge({
+    sessionDataPath: sessionDataPath(),
+    onSessionState,
+    onMessage: onIncomingMessage
+  })
+  currentLang = detectOsLang()
+  tray?.refreshMenu()
+  tray?.update(bridge.getState())
+}
+
+/** Construct a supervisor pointed at a given tier's GGUF + projector. */
+function buildSupervisor(tier: ModelTier): LlamaSupervisor {
+  return new LlamaSupervisor({
+    binaryPath: llamaBinaryPath(),
+    modelPath: modelPath(tier),
+    mmprojPath: mmprojPath(tier), // enables scam-image analysis when present
+    // Room for the prompt (+ image) AND a long thinking phase before the JSON,
+    // so a verdict isn't truncated to finish=length (must exceed classifier max_tokens).
+    contextSize: 8192,
+    // The 12B is costly to load + warm up, so keep it resident much longer to
+    // avoid paying that on every sparse message; the small models unload sooner.
+    idleUnloadMs: tier === '12b' ? 30 * 60_000 : 5 * 60_000
+  })
+}
+
+/** Download a model tier (defaults to the active one), streaming progress. */
+async function runModelDownload(tier: ModelTier = currentTier): Promise<void> {
   sendToRenderer(IPC.modelStatus, { phase: 'downloading' })
   // Log free disk up front — running out of space is a common cross-machine failure.
   try {
     const { bsize, bavail } = await statfs(app.getPath('userData'))
-    logSystem('INFO', 'model', `starting download (tier ${DEFAULT_TIER}); free disk ${(bsize * bavail / 1e9).toFixed(1)} GB`)
+    logSystem('INFO', 'model', `starting download (tier ${tier}); free disk ${(bsize * bavail / 1e9).toFixed(1)} GB`)
   } catch {
     /* statfs unavailable — non-fatal */
   }
   try {
-    await ensureModel(DEFAULT_TIER, {
+    await ensureModel(tier, {
       onProgress: (p) => sendToRenderer(IPC.modelProgress, p),
       onLog: (m) => logSystem('WARN', 'model', m)
     })
     sendToRenderer(IPC.modelStatus, { phase: 'done' })
-    logSystem('INFO', 'model', 'download complete and verified')
+    logSystem('INFO', 'model', `download complete and verified (tier ${tier})`)
     supervisor?.ensureStarted().catch((err) => logSystem('ERROR', 'llm', String(err)))
   } catch (err) {
     logSystem('ERROR', 'model', `download failed: ${String(err)}`)
@@ -195,17 +245,44 @@ async function runModelDownload(): Promise<void> {
   }
 }
 
+/**
+ * Switch the active model tier: persist the choice, point inference at the new
+ * GGUF, downloading it first if it isn't on disk yet, then (re)start the server.
+ * The classifier reads `supervisor` lazily, so reassigning it is enough.
+ */
+async function switchModel(tier: ModelTier): Promise<void> {
+  if (tier === currentTier && isModelPresent(tier)) return
+  logSystem('INFO', 'llm', `switching model tier → ${tier}`)
+  currentTier = tier
+  store?.setModelTier(tier)
+  await supervisor?.stop()
+  supervisor = buildSupervisor(tier)
+  if (isModelPresent(tier)) {
+    sendToRenderer(IPC.modelStatus, { phase: 'done' })
+    supervisor.ensureStarted().catch((err) => logSystem('ERROR', 'llm', `could not start: ${String(err)}`))
+  } else {
+    await runModelDownload(tier)
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle(IPC.getSessionState, () => bridge?.getState() ?? { status: 'initializing' })
   ipcMain.handle(IPC.getOnboardingState, () => ({
     consentGiven: store?.hasConsent() ?? false,
-    modelPresent: isModelPresent(DEFAULT_TIER)
+    modelPresent: isModelPresent(currentTier)
   }))
   ipcMain.handle(IPC.recordConsent, () => {
     store?.recordConsent()
     void startProtection() // safe to read messages now
   })
-  ipcMain.handle(IPC.startModelDownload, () => void runModelDownload())
+  ipcMain.handle(IPC.startModelDownload, (_e, tier?: ModelTier) => {
+    if (tier) {
+      currentTier = tier
+      store?.setModelTier(tier)
+      supervisor = buildSupervisor(tier) // point inference at the chosen tier
+    }
+    void runModelDownload(currentTier)
+  })
   ipcMain.handle(IPC.listAlerts, () => store?.listVerdicts() ?? [])
   ipcMain.handle(IPC.dismissAlert, (_e, id: string, wasFalsePositive: boolean) => {
     const rec = store?.listVerdicts().find((v) => v.id === id)
@@ -218,7 +295,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.removeSafeNumber, (_e, num: string) => store?.removeSafeNumber(num))
   ipcMain.handle(IPC.getHardwareInfo, () => detectHardware())
   ipcMain.handle(IPC.getSystemInfo, () => {
-    const tier = effectiveTier()
+    const tier = currentTier
     return {
       appVersion: app.getVersion(),
       modelName: modelFileName(tier),
@@ -237,6 +314,9 @@ function registerIpc(): void {
     isQuitting = true
     app.quit()
   })
+  ipcMain.handle(IPC.disconnect, () => disconnectAndReset())
+  ipcMain.handle(IPC.getModelTier, () => currentTier)
+  ipcMain.handle(IPC.setModelTier, (_e, tier: ModelTier) => switchModel(tier))
   ipcMain.handle(IPC.getLanguage, () => currentLang)
   ipcMain.handle(IPC.setLanguage, (_e, lang: Lang) => {
     currentLang = lang
@@ -244,6 +324,26 @@ function registerIpc(): void {
     tray?.refreshMenu()
     if (bridge) tray?.update(bridge.getState()) // refresh tooltip in new language
   })
+}
+
+/**
+ * Best-effort OS UI language. In a packaged macOS app `app.getLocale()` keys off
+ * the bundle's declared localizations and falls back to English, so we prefer the
+ * OS's ordered preferred-language list (independent of the app) and only treat a
+ * candidate as English when it really is.
+ */
+function detectOsLang(): Lang {
+  const candidates = [
+    ...(app.getPreferredSystemLanguages?.() ?? []),
+    app.getSystemLocale?.() ?? '',
+    app.getLocale()
+  ]
+  for (const c of candidates) {
+    if (!c) continue
+    const lang = normalizeLang(c)
+    if (lang !== 'en' || /^en/i.test(c)) return lang
+  }
+  return 'en'
 }
 
 app.whenReady().then(async () => {
@@ -254,19 +354,20 @@ app.whenReady().then(async () => {
   // absent until the first-run wizard downloads it; preflight degrades gracefully.
   const config = loadScamConfig()
   scamRulesUpdatedAt = config.updatedAt
-  logSystem('INFO', 'llm', `model tier: ${DEFAULT_TIER}`)
-  supervisor = new LlamaSupervisor({
-    binaryPath: llamaBinaryPath(),
-    modelPath: modelPath(DEFAULT_TIER),
-    mmprojPath: mmprojPath(DEFAULT_TIER), // enables scam-image analysis when present
-    idleUnloadMs: 5 * 60_000
-  })
+  // Resolve the active tier: the user's stored choice wins; otherwise fall back
+  // to whatever model is already on disk / the hardware recommendation.
+  currentTier = store.getModelTier() ?? effectiveTier()
+  logSystem('INFO', 'llm', `model tier: ${currentTier}`)
+  supervisor = buildSupervisor(currentTier)
   riskEngine = new RiskEngine(config)
-  currentLang = store.getLanguage() ?? normalizeLang(app.getLocale())
+  currentLang = store.getLanguage() ?? detectOsLang()
   // Endpoint + language are resolved lazily (both can change at runtime).
   classifier = new Classifier(config, {
     endpoint: () => supervisor!.endpoint(),
-    language: () => currentLang
+    language: () => currentLang,
+    // The 12B is much slower (and warms up Metal on first use), so give it a far
+    // longer budget than the 4B before aborting.
+    timeoutMs: () => (currentTier === '12b' ? 300_000 : 90_000)
   })
 
   tray = new TrayController({

@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "updatedAt": "2026-06-09",
+  "version": 2,
+  "updatedAt": "2026-06-18",
   "_systemPrompt": "The system prompt lives in system-prompt.txt (edit that file to tune tone/behaviour).",
   "categories": [
     { "id": "urgency_money", "desc": "Pressure to send money quickly, emergencies requiring immediate payment." },
@@ -12,6 +12,6 @@
     { "id": "account_takeover", "desc": "Asking for a verification/OTP code 'you just received', or to move to another app." },
     { "id": "malicious_link", "desc": "Links to fake login pages, prize claims, parcel-redelivery, or malware." }
   ],
-  "instructions": "Return ONLY a JSON object (no prose, no markdown) with exactly these keys: risk (one of \"low\", \"medium\", \"high\"), category (one of the category ids above, or \"none\" if no scam, or \"other\"), trigger (a short quote or element from the message that drove the verdict; empty string if none), plain_reason (one warm, jargon-free sentence an older adult can understand, e.g. \"This message is pressuring you to send money quickly — a common scam.\"). If the message is harmless, use risk \"low\", category \"none\".",
+  "instructions": "Return ONLY a JSON object (no prose, no markdown) with exactly these keys: risk (one of \"low\", \"medium\", \"high\"), category (one of the category ids above, or \"none\" if no scam, or \"other\"), trigger (a short quote or element from the message that drove the verdict; empty string if none), plain_reason (one warm, jargon-free sentence, written in the required output language, that an older adult can understand and that names what to watch out for). If the message is harmless, use risk \"low\", category \"none\".",
   "thresholds": { "notifyAtOrAbove": "medium" }
 }

@@ -355,6 +355,63 @@ button.danger:hover {
   opacity: 0.6;
 }
 
+/* ---- Model picker (wizard + settings) ---- */
+.model-choose {
+  margin: 4px 0 10px;
+  font-weight: 600;
+}
+
+.model-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.model-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.model-opt:has(input:checked) {
+  border-color: var(--accent);
+  background: #f0f7f4;
+}
+
+.model-opt input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.model-opt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-opt-name {
+  font-weight: 600;
+}
+
+.model-opt-desc {
+  font-size: 14px;
+}
+
+.model-rec {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* ---- First-run wizard ---- */
 #wizard {
   min-height: 100vh;

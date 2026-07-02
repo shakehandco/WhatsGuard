@@ -1,5 +1,5 @@
 import type { ChatMessage, IncomingMessage, RiskLevel, ScamCategory, Verdict } from '@shared/types'
-import { LANGUAGE_NAMES, type Lang } from '@shared/i18n'
+import { LANGUAGE_NAMES, LANGUAGE_NATIVE, type Lang } from '@shared/i18n'
 import type { ScamConfig } from './config'
 
 const RISK_LEVELS: RiskLevel[] = ['low', 'medium', 'high']
@@ -13,7 +13,12 @@ export interface ClassifierOptions {
   endpoint: () => string
   /** Model name to pass through (llama-server ignores it but the API expects it). */
   model?: string
-  timeoutMs?: number
+  /**
+   * Resolves the per-request timeout in ms. A function (resolved at call time)
+   * because it depends on the active model: the 12B is far slower than the 4B
+   * and its first inference also pays a one-off Metal warm-up.
+   */
+  timeoutMs?: () => number
   /**
    * Token budget. Gemma 4 emits a thinking phase before the JSON; too small a
    * budget truncates mid-thought and yields empty content. Must be generous.
@@ -56,12 +61,25 @@ interface ChatTurn {
 /** Build the system prompt from the (OTA-updatable) scam config. */
 export function buildSystemPrompt(config: ScamConfig, lang: Lang = 'en'): string {
   const cats = config.categories.map((c) => `- ${c.id}: ${c.desc}`).join('\n')
-  const langLine = `\n\nIMPORTANT: write the "plain_reason" field in ${LANGUAGE_NAMES[lang]}. Keep "category" and "risk" exactly as the allowed values.`
+  const name = LANGUAGE_NAMES[lang]
+  const native = LANGUAGE_NATIVE[lang]
+  // Strong, explicit language control. The biggest failure mode is the model
+  // echoing the English example wording, so we call that out directly and pair
+  // the English name with the native script to make the target unambiguous.
+  const langLine =
+    `\n\nOUTPUT LANGUAGE — STRICT: The "plain_reason" value MUST be written in ${name} (${native}). ` +
+    `Any example wording above is illustrative only and happens to be in English — do NOT copy its language. ` +
+    `Even if the analysed message is written in another language, "plain_reason" must still be in ${name}. ` +
+    `Keep "risk" and "category" exactly as the allowed English keywords.`
   return `${config.systemPrompt}\n\nScam categories:\n${cats}\n\n${config.instructions}${langLine}`
 }
 
 /** Render the rolling context + the message under analysis into a user turn. */
-export function buildUserTurn(msg: IncomingMessage, context: ChatMessage[]): ChatTurn {
+export function buildUserTurn(
+  msg: IncomingMessage,
+  context: ChatMessage[],
+  lang: Lang = 'en'
+): ChatTurn {
   const priorLines = context
     .filter((m) => m.id !== msg.id)
     .map((m) => `${m.fromMe ? 'You' : m.senderName || 'Them'}: ${m.body}`)
@@ -73,8 +91,12 @@ export function buildUserTurn(msg: IncomingMessage, context: ChatMessage[]): Cha
     `Message to analyse — from "${msg.senderName}":\n` +
     (msg.body ? `"${msg.body}"` : '(no text)') +
     (msg.media ? `\n[an image is attached]` : '')
+  // Final reminder last, where recency makes the model most likely to obey it.
+  const reminder =
+    `\n\nReturn only the JSON verdict. Write "plain_reason" in ` +
+    `${LANGUAGE_NAMES[lang]} (${LANGUAGE_NATIVE[lang]}).`
 
-  const text = `${header}${target}`
+  const text = `${header}${target}${reminder}`
 
   if (msg.media && msg.media.mimetype.startsWith('image/')) {
     return {
@@ -128,12 +150,13 @@ export class Classifier {
   ) {}
 
   async classify(msg: IncomingMessage, context: ChatMessage[]): Promise<Verdict> {
+    const lang = this.opts.language?.() ?? 'en'
     const turns: ChatTurn[] = [
-      { role: 'system', content: buildSystemPrompt(this.config, this.opts.language?.() ?? 'en') },
-      buildUserTurn(msg, context)
+      { role: 'system', content: buildSystemPrompt(this.config, lang) },
+      buildUserTurn(msg, context, lang)
     ]
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.opts.timeoutMs ?? 60_000)
+    const timeout = setTimeout(() => controller.abort(), this.opts.timeoutMs?.() ?? 60_000)
     try {
       const resp = await fetch(`${this.opts.endpoint()}/v1/chat/completions`, {
         method: 'POST',
@@ -142,8 +165,10 @@ export class Classifier {
           model: this.opts.model ?? 'gemma-4',
           messages: turns,
           temperature: 0,
-          // Budget for the thinking phase + the JSON; too small → empty content.
-          max_tokens: this.opts.maxTokens ?? 1024,
+          // Budget for the thinking phase + the JSON. Gemma's reasoning can run
+          // long (esp. 12B); too small → finish=length with empty content. This
+          // must stay well under the server's --ctx-size (see buildSupervisor).
+          max_tokens: this.opts.maxTokens ?? 4096,
           // Constrain output to the Verdict shape (llama-server → grammar).
           response_format: {
             type: 'json_schema',

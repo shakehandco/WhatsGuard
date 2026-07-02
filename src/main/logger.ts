@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'fs'
 import { join } from 'path'
 import type { FilterDropReason, Verdict } from '@shared/types'
 
@@ -48,6 +48,18 @@ let dir = ''
 
 export function logsDir(): string {
   return dir
+}
+
+/**
+ * Delete the system + activity logs and their rotated backups (user erase).
+ * Each FileLog only holds a path and writes via appendFileSync, so the files
+ * re-create themselves on the next log line.
+ */
+export function clearLogs(): void {
+  if (!dir) return
+  for (const name of ['system.log', 'system.log.1', 'activity.log', 'activity.log.1']) {
+    rmSync(join(dir, name), { force: true })
+  }
 }
 
 export function initLogs(): void {

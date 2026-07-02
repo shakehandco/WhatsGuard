@@ -12,9 +12,12 @@ export const IPC = {
   getSystemInfo: 'system:get',
   openLogs: 'system:open-logs',
   quitApp: 'system:quit',
+  disconnect: 'whatsapp:disconnect',
   getOnboardingState: 'onboarding:get',
   recordConsent: 'onboarding:consent',
   startModelDownload: 'model:download',
+  getModelTier: 'model:tier:get',
+  setModelTier: 'model:tier:set',
   getLanguage: 'lang:get',
   setLanguage: 'lang:set',
 

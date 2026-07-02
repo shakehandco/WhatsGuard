@@ -19,3 +19,8 @@ resources/models/
 
 # Local runtime data
 .whatsguard-data/
+
+# Built installers — distribute via website / GitHub release assets, not git
+*.dmg
+*.dmg.sha256
+public/

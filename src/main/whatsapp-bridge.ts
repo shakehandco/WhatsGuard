@@ -200,11 +200,30 @@ export class WhatsAppBridge {
     const contentType = getContentType(content)
     const incoming = this.toIncoming(msg, remoteJid, contentType, content)
 
+    // WhatsApp routes many 1:1 chats by an opaque LID rather than the phone
+    // number, so resolve the real number for safe-list matching (see senderPn).
+    incoming.senderPn = await this.resolveSenderPn(incoming.sender)
+
     // Decode images so the multimodal model can read scam screenshots/photos.
     if (contentType === 'imageMessage') {
       await this.attachImage(msg, incoming)
     }
     this.opts.onMessage(incoming)
+  }
+
+  /**
+   * Map a "…@lid" sender back to its phone-number jid via Baileys' LID store.
+   * Returns undefined for non-LID senders or when the mapping isn't known yet
+   * (in which case the message is simply analysed as before — fail safe).
+   */
+  private async resolveSenderPn(sender: string): Promise<string | undefined> {
+    if (!sender.endsWith('@lid')) return undefined
+    try {
+      const pn = await this.sock?.signalRepository?.lidMapping?.getPNForLID(sender)
+      return pn ?? undefined
+    } catch {
+      return undefined
+    }
   }
 
   private toIncoming(
@@ -257,6 +276,28 @@ export class WhatsAppBridge {
       /* ignore */
     }
     this.sock = undefined
+  }
+
+  /**
+   * Unlink the WhatsApp number entirely: `logout()` removes this device from the
+   * phone's Linked Devices (the phone is notified). Unlike {@link destroy}, this
+   * is intended to be permanent — the caller also deletes the on-disk session so
+   * a fresh QR is required to reconnect. Best-effort: if logout fails (e.g.
+   * offline) we still drop the socket so the local teardown can proceed.
+   */
+  async disconnect(): Promise<void> {
+    this.closing = true
+    try {
+      await this.sock?.logout()
+    } catch {
+      try {
+        this.sock?.end(undefined)
+      } catch {
+        /* ignore */
+      }
+    }
+    this.sock = undefined
+    this.linkedNumber = null
   }
 }
 

@@ -1,4 +1,4 @@
-import type { SessionState, VerdictRecord } from '@shared/types'
+import { SELECTABLE_MODELS, type ModelTier, type SessionState, type VerdictRecord } from '@shared/types'
 import { t, LANGS, LANG_LOCALE, type Lang } from '@shared/i18n'
 import { runWizard } from './wizard'
 
@@ -6,6 +6,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 let lang: Lang = 'en'
 let lastSession: SessionState = { status: 'initializing' }
+let modelTier: ModelTier = 'e4b'
 
 const statusText = $('status-text')
 const statusDot = $('status-dot')
@@ -199,6 +200,87 @@ function wireQuit(): void {
   }
 }
 
+function wireDisconnect(): void {
+  $<HTMLButtonElement>('disconnect-btn').onclick = async (): Promise<void> => {
+    if (!window.confirm(t(lang, 'disconnect_confirm'))) return
+    await window.whatsguard.disconnect()
+    // Consent is now wiped; reload re-runs init() into the first-run wizard.
+    window.location.reload()
+  }
+}
+
+/** Render the model radio options, marking the active tier. */
+function renderModelOptions(): void {
+  const wrap = $('model-opts')
+  wrap.innerHTML = ''
+  for (const m of SELECTABLE_MODELS) {
+    const label = document.createElement('label')
+    label.className = 'model-opt'
+
+    const input = document.createElement('input')
+    input.type = 'radio'
+    input.name = 'model'
+    input.value = m.tier
+    input.checked = m.tier === modelTier
+    input.onchange = (): void => {
+      if (input.checked) void selectModel(m.tier)
+    }
+
+    const body = document.createElement('span')
+    body.className = 'model-opt-body'
+    const name = document.createElement('span')
+    name.className = 'model-opt-name'
+    name.textContent = m.label
+    const desc = document.createElement('span')
+    desc.className = 'model-opt-desc muted'
+    desc.textContent =
+      `${t(lang, `model_blurb_${m.tier}`)} · ` +
+      t(lang, 'wiz_model_spec', { size: m.downloadGB, ram: m.minRamGB })
+    body.append(name, desc)
+
+    label.append(input, body)
+    wrap.append(label)
+  }
+}
+
+/** Switch the active model (downloads on demand in the main process). */
+async function selectModel(tier: ModelTier): Promise<void> {
+  if (tier === modelTier) return
+  modelTier = tier
+  const status = $('model-status')
+  status.hidden = false
+  status.textContent = t(lang, 'model_switching')
+  await window.whatsguard.setModelTier(tier)
+}
+
+/** Subscribe to download/switch progress for the model card. */
+function wireModel(): void {
+  const wrap = $('model-progress-wrap')
+  const bar = $('model-bar')
+  const pct = $('model-pct')
+  const status = $('model-status')
+  window.whatsguard.onModelProgress((p) => {
+    wrap.hidden = false
+    bar.style.width = p.ratio >= 0 ? `${Math.round(p.ratio * 100)}%` : '0%'
+    pct.textContent = p.ratio >= 0 ? `${Math.round(p.ratio * 100)}%` : ''
+  })
+  window.whatsguard.onModelStatus((s) => {
+    if (s.phase === 'downloading') {
+      status.hidden = false
+      status.textContent = t(lang, 'model_switching')
+    } else if (s.phase === 'done') {
+      wrap.hidden = true
+      status.hidden = false
+      status.textContent = t(lang, 'model_ready')
+      void refreshSystemInfo()
+    } else if (s.phase === 'error') {
+      wrap.hidden = true
+      status.hidden = false
+      status.textContent = t(lang, 'model_error')
+    }
+  })
+}
+
 /** Switch between the Home and Settings tabs. */
 function showTab(tab: 'home' | 'settings'): void {
   const isHome = tab === 'home'
@@ -235,7 +317,14 @@ function applyStaticText(): void {
   $('safelist-add-btn').textContent = t(lang, 'safelist_add')
   $<HTMLInputElement>('safelist-input').placeholder = t(lang, 'safelist_placeholder')
 
+  $('model-title').textContent = t(lang, 'model_title')
+  $('model-lead').textContent = t(lang, 'model_lead')
+  renderModelOptions()
+
   $('sysinfo-title').textContent = t(lang, 'sysinfo_title')
+  $('disconnect-title').textContent = t(lang, 'disconnect_title')
+  $('disconnect-lead').textContent = t(lang, 'disconnect_lead')
+  $('disconnect-btn').textContent = t(lang, 'disconnect_button')
   $('quit-title').textContent = t(lang, 'quit_title')
   $('quit-lead').textContent = t(lang, 'quit_lead')
   $('quit-btn').textContent = t(lang, 'quit_button')
@@ -270,9 +359,13 @@ async function showDashboard(): Promise<void> {
   $('dashboard').hidden = false
   buildLangSelect()
   applyStaticText()
+  modelTier = await window.whatsguard.getModelTier()
   wireTabs()
   wireSafeList()
   wireQuit()
+  wireDisconnect()
+  wireModel()
+  renderModelOptions()
   showTab('home')
   renderSession(await window.whatsguard.getSessionState())
   window.whatsguard.onSessionState(renderSession)

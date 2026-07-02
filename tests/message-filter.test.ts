@@ -28,6 +28,24 @@ describe('filterMessage', () => {
     expect(res).toEqual({ pass: false, reason: 'safe_listed_sender' })
   })
 
+  it('drops a LID-routed sender when its resolved phone number is safe-listed', () => {
+    // The sender id is an opaque LID that shares no digits with the number;
+    // matching must use the resolved senderPn instead.
+    const res = filterMessage(
+      msg({ sender: '216573860175976@lid', senderPn: '85260211972@s.whatsapp.net' }),
+      ['+85260211972']
+    )
+    expect(res).toEqual({ pass: false, reason: 'safe_listed_sender' })
+  })
+
+  it('still analyses a LID sender whose number is not safe-listed', () => {
+    const res = filterMessage(
+      msg({ sender: '216573860175976@lid', senderPn: '85260211972@s.whatsapp.net' }),
+      ['+44111222333']
+    )
+    expect(res).toEqual({ pass: true })
+  })
+
   it('drops system notifications', () => {
     expect(filterMessage(msg({ type: 'e2e_notification' }), [])).toEqual({
       pass: false,

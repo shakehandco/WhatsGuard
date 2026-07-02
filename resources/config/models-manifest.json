@@ -28,13 +28,13 @@
     "12b": {
       "model": {
         "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/gemma-4-12B-it-Q4_K_M.gguf",
-        "sha256": "",
-        "sizeBytes": 0
+        "sha256": "1278394b693672ac2799eadc9a83fd98259a6a88a40acfb1dcaa6c6fc895a606",
+        "sizeBytes": 7381382048
       },
       "mmproj": {
         "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/mmproj-gemma-4-12B-it-Q8_0.gguf",
-        "sha256": "",
-        "sizeBytes": 0
+        "sha256": "b486d28398a398db4fa14cc4b032252ad3a8d7f950b9fabd93f5c8b4d4dde52b",
+        "sizeBytes": 158987584
       }
     }
   }

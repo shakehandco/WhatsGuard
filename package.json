@@ -1,6 +1,6 @@
 {
   "name": "whatsguard",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Privacy-preserving, on-device elder-fraud detection for WhatsApp.",
   "author": "WhatsGuard",
   "license": "Apache-2.0",
@@ -25,11 +25,14 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/qrcode": "^1.5.6",
-    "electron": "^33.2.0",
+    "electron": "^39.8.5",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
     "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "tar": "^7.5.11"
   }
 }
