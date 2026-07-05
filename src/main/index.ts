@@ -24,6 +24,7 @@ import { LlamaSupervisor } from './llm-supervisor'
 import { RiskEngine } from './risk-engine'
 import { TrayController } from './tray'
 import { clearLogs, initLogs, logActivity, logSystem, logsDir, type ActivityEntry } from './logger'
+import { initAutoUpdate } from './updater'
 import { normalizeLang, type Lang } from '@shared/i18n'
 
 // Safety net: a stray async rejection (e.g. a transient Baileys socket error)
@@ -383,6 +384,10 @@ app.whenReady().then(async () => {
 
   // Launch at login (packaged only, so dev runs don't touch login items).
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
+
+  // Background in-app updates (packaged only; verified by Developer ID signature
+  // + latest-mac.yml SHA-512). Quiet: downloads in background, installs on quit.
+  initAutoUpdate(app.isPackaged)
 
   bridge = new WhatsAppBridge({
     sessionDataPath: sessionDataPath(),

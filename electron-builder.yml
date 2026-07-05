@@ -24,9 +24,15 @@ mac:
   # arm64-only for MVP: the bundled llama-server is Apple-Silicon. Building x64
   # too would ship a broken binary AND make parallel dmg builds fight over the
   # /Volumes/WhatsGuard mount (hdiutil detach race). Add x64 when we bundle an
-  # Intel llama-server; add the zip target when Phase 6 wires the auto-updater.
+  # Intel llama-server.
+  #
+  # BOTH targets are required: the dmg is the first-install download; the zip is
+  # what electron-updater (Squirrel.Mac) actually consumes for in-app updates —
+  # a dmg-only build cannot auto-update.
   target:
     - target: dmg
+      arch: [arm64]
+    - target: zip
       arch: [arm64]
   # Developer ID signing + hardened runtime → silent Gatekeeper once notarized.
   hardenedRuntime: true
@@ -60,4 +66,13 @@ dmg:
 
 # Model updates ship on their own channel — never re-download the model for an
 # app patch (see Phase 6). The model is NOT packaged into the installer.
-publish: null
+#
+# Publish target for electron-updater. This block is also what makes
+# electron-builder embed `app-update.yml` into the bundle, so the shipped app
+# knows where to look for updates. The release workflow builds with
+# `--publish never`, verifies the signed artifacts, then uploads the exact
+# bytes (dmg + zip + latest-mac.yml + blockmaps) to the GitHub release.
+publish:
+  provider: github
+  owner: shakehandco
+  repo: WhatsGuard

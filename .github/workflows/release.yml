@@ -1,0 +1,143 @@
+name: Release macOS
+
+# Privileged trust level. Runs ONLY on a protected version tag (or manual
+# dispatch from a tag ref). Uses the `production-release` GitHub environment,
+# which should be configured with a required reviewer and self-review disabled
+# so the Apple/signing secrets are withheld until a human approves.
+#
+# Immutable-bytes rule: build → sign → notarize → staple → VERIFY → publish.
+# Nothing mutates the artifacts after they are built; the exact bytes that pass
+# verification are the bytes uploaded, and their SHA-512 is what electron-updater
+# checks against latest-mac.yml.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: macos-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create the GitHub release + upload assets
+  id-token: write # provenance attestation
+  attestations: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    environment: production-release
+    steps:
+      # TODO(security): pin to a reviewed full commit SHA for production.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validate tag matches package.json version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag '$TAG' does not match package.json version '$PKG'"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # electron-builder imports CSC_LINK into a temporary keychain and cleans it
+      # up itself; it reads the App Store Connect key from APPLE_API_KEY (a path),
+      # APPLE_API_KEY_ID and APPLE_API_ISSUER for notarytool. The .p8 is written
+      # only into the runner temp dir and removed in the final always() step.
+      - name: Build, sign, notarize, staple
+        env:
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          export APPLE_API_KEY="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" >"$APPLE_API_KEY"
+          chmod 600 "$APPLE_API_KEY"
+          # pack:mac:release = build + electron-builder --mac -c.mac.notarize=true
+          # --publish never (see package.json). Produces FINAL signed + notarized
+          # + stapled dmg, zip, latest-mac.yml and blockmaps in dist/.
+          npm run pack:mac:release
+
+      - name: Resolve built artifacts
+        id: art
+        run: |
+          set -euo pipefail
+          APP="$(find dist -maxdepth 2 -name 'WhatsGuard.app' -type d | head -1)"
+          DMG="$(find dist -maxdepth 1 -name '*.dmg' | head -1)"
+          ZIP="$(find dist -maxdepth 1 -name '*.zip' | head -1)"
+          for v in APP DMG ZIP; do
+            if [ -z "${!v}" ]; then echo "::error::could not locate $v in dist/"; exit 1; fi
+          done
+          {
+            echo "app=$APP"
+            echo "dmg=$DMG"
+            echo "zip=$ZIP"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Verify Developer ID signature
+        run: codesign --verify --deep --strict --verbose=4 "${{ steps.art.outputs.app }}"
+
+      - name: Entitlement allowlist (signed app)
+        run: ./ci/check-entitlements.sh "${{ steps.art.outputs.app }}"
+
+      - name: Nested-code inventory
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ./ci/check-nested-code.sh "${{ steps.art.outputs.app }}" "$APPLE_TEAM_ID"
+
+      - name: Gatekeeper assessment + staple validation
+        env:
+          APP: ${{ steps.art.outputs.app }}
+          DMG: ${{ steps.art.outputs.dmg }}
+        run: |
+          set -euo pipefail
+          # electron-builder notarizes + staples the .app, then packages it. The
+          # ticket lives in the app — the zip just wraps it and the dmg contains
+          # it. A .zip CANNOT be stapled, and the dmg is unsigned by default, so
+          # the .app bundle is the authoritative artifact to validate.
+          xcrun stapler validate "$APP"
+          spctl -a -vvv --type exec "$APP"
+          # The dmg deliberately carries no ticket of its own: stapling it would
+          # change its bytes and invalidate latest-mac.yml. Informational only.
+          xcrun stapler validate "$DMG" \
+            || echo "note: dmg not stapled (expected; the contained app holds the ticket)"
+
+      - name: Record SHA-256 of published bytes
+        run: shasum -a 256 "${{ steps.art.outputs.dmg }}" "${{ steps.art.outputs.zip }}" | tee dist/SHASUMS256.txt
+
+      - name: Provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            ${{ steps.art.outputs.dmg }}
+            ${{ steps.art.outputs.zip }}
+
+      - name: Publish GitHub release (immutable bytes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DMG: ${{ steps.art.outputs.dmg }}
+          ZIP: ${{ steps.art.outputs.zip }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=( "$DMG" "$ZIP" dist/latest-mac.yml dist/SHASUMS256.txt dist/*.blockmap )
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+            --verify-tag --generate-notes
+
+      - name: Clean sensitive material
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8

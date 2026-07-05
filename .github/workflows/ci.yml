@@ -1,0 +1,57 @@
+name: CI
+
+# Untrusted trust level: runs on every PR and non-release push. Receives NO
+# Apple or signing secrets. Its job is to catch breakage and policy violations
+# early — the authoritative signed checks live in release.yml.
+on:
+  pull_request:
+  push:
+    branches: ['**']
+    tags-ignore: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck, test, entitlement policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      # Source-level entitlement gate: a new entitlement in the plist fails CI
+      # until ci/expected-release-entitlements.txt is updated and reviewed.
+      - name: Entitlement allowlist (source plist)
+        run: ./ci/check-entitlements.sh build/entitlements.mac.plist
+
+  package:
+    name: Unsigned packaging smoke test
+    runs-on: macos-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # Build and assemble the .app WITHOUT signing — catches electron-builder /
+      # config breakage without needing any Apple credentials.
+      - name: Build + package (unsigned)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm run build
+          npx electron-builder --mac --dir --publish never

@@ -1,0 +1,17 @@
+# Allowlist of hardened-runtime entitlements permitted in a WhatsGuard release.
+#
+# One entitlement key per line. Blank lines and #-comments are ignored. The CI
+# gate (ci/check-entitlements.sh) fails the build if the set of entitlements —
+# in the source plist (PR) or the signed .app (release) — differs from this list
+# in EITHER direction. Adding a key here is a security decision and must be
+# reviewed before merge.
+#
+# WARNING: the four keys below all WEAKEN the hardened runtime. They exist only
+# because the bundled `llama-server` sidecar and its dylibs are not yet signed
+# with our own Developer ID. Signing the sidecar lets us drop at least
+# disable-library-validation and allow-dyld-environment-variables — tighten this
+# list (and build/entitlements.mac.plist) when that work lands.
+com.apple.security.cs.allow-dyld-environment-variables
+com.apple.security.cs.allow-jit
+com.apple.security.cs.allow-unsigned-executable-memory
+com.apple.security.cs.disable-library-validation
