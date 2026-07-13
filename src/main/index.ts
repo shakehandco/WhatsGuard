@@ -36,6 +36,12 @@ process.on('unhandledRejection', (reason) => {
   logSystem('ERROR', 'unhandledRejection', msg.split('\n')[0])
 })
 
+// Windows toast notifications are silently dropped unless the process declares
+// an AppUserModelID matching the Start-menu shortcut's — electron-builder's NSIS
+// installer stamps the shortcut with the appId from electron-builder.yml, so the
+// two strings must stay in sync. Must run before any Notification is created.
+if (process.platform === 'win32') app.setAppUserModelId('app.whatsguard.desktop')
+
 let mainWindow: BrowserWindow | undefined
 let bridge: WhatsAppBridge | undefined
 let store: Store | undefined

@@ -1,6 +1,7 @@
-import { Tray, Menu, Notification, nativeImage, app } from 'electron'
+import { Tray, Menu, Notification, nativeImage, app, type NativeImage } from 'electron'
 import type { SessionState, SessionStatus } from '@shared/types'
 import { t, type Lang } from '@shared/i18n'
+import { circlePng, type Rgba } from './tray-icon'
 
 /** Menubar glyph per session status (language-neutral). */
 const STATUS_GLYPH: Record<SessionStatus, string> = {
@@ -10,6 +11,28 @@ const STATUS_GLYPH: Record<SessionStatus, string> = {
   ready: '●',
   disconnected: '⛔',
   auth_failure: '⛔'
+}
+
+/**
+ * Status dot colour for platforms without menubar text (Windows/Linux), where
+ * the glyph title above is unavailable (`setTitle` is macOS-only) and an empty
+ * tray image is invisible.
+ */
+const STATUS_COLOR: Record<SessionStatus, Rgba> = {
+  initializing: [154, 160, 166, 255], // grey — starting up
+  qr: [245, 166, 35, 255], // amber — action needed to link
+  authenticated: [245, 166, 35, 255],
+  ready: [46, 160, 67, 255], // green — protecting
+  disconnected: [217, 48, 37, 255], // red — monitoring stopped
+  auth_failure: [217, 48, 37, 255]
+}
+
+/** macOS uses the empty-image + glyph-title trick; everywhere else needs a real icon. */
+const USE_GLYPH_TITLE = process.platform === 'darwin'
+
+function statusImage(status: SessionStatus): NativeImage {
+  // 32px so Windows scales DOWN to the tray cell on HiDPI instead of up.
+  return nativeImage.createFromBuffer(circlePng(32, STATUS_COLOR[status]))
 }
 
 /** Statuses that mean monitoring has silently stopped and the user must act. */
@@ -36,10 +59,13 @@ export class TrayController {
   constructor(private readonly opts: TrayControllerOptions) {}
 
   init(): void {
-    // Empty image + menubar title keeps us asset-free; the glyph conveys status.
-    this.tray = new Tray(nativeImage.createEmpty())
+    // Asset-free either way: macOS shows a glyph as menubar text next to an
+    // empty image; Windows/Linux get a generated status-dot PNG instead.
+    this.tray = USE_GLYPH_TITLE
+      ? new Tray(nativeImage.createEmpty())
+      : new Tray(statusImage('initializing'))
     this.tray.setToolTip('WhatsGuard')
-    this.tray.setTitle('○')
+    if (USE_GLYPH_TITLE) this.tray.setTitle('○')
     this.refreshMenu()
     this.tray.on('click', () => this.opts.onShowWindow())
   }
@@ -61,7 +87,11 @@ export class TrayController {
   update(state: SessionState): void {
     if (!this.tray) return
     const lang = this.opts.getLang()
-    this.tray.setTitle(STATUS_GLYPH[state.status] ?? '○')
+    if (USE_GLYPH_TITLE) {
+      this.tray.setTitle(STATUS_GLYPH[state.status] ?? '○')
+    } else {
+      this.tray.setImage(statusImage(state.status))
+    }
     this.tray.setToolTip(t(lang, `tray_tip_${state.status}`))
 
     // Fire a native notification only on the transition INTO an attention state,

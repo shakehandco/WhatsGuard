@@ -55,3 +55,22 @@ jobs:
         run: |
           npm run build
           npx electron-builder --mac --dir --publish never
+
+  package-win:
+    name: Unsigned Windows packaging smoke test
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # Assemble the win-unpacked dir WITHOUT signing or the llama-server.exe
+      # sidecar (release builds add it) — catches electron-builder / config
+      # breakage in the win/nsis blocks.
+      - name: Build + package (unsigned)
+        run: |
+          npm run build
+          npx electron-builder --win --dir --publish never

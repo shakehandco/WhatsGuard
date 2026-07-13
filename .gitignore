@@ -14,6 +14,8 @@ dist/
 # Bundled model weights & binaries are pulled on first run / CI — never commit
 resources/bin/llama-server
 resources/bin/*.dylib
+resources/bin/*.exe
+resources/bin/*.dll
 resources/models/
 *.gguf
 
@@ -24,3 +26,4 @@ resources/models/
 *.dmg
 *.dmg.sha256
 public/
+

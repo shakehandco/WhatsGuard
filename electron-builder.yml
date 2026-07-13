@@ -64,6 +64,31 @@ dmg:
   title: WhatsGuard
   # iconSize/contents can be themed later.
 
+win:
+  # x64-only: the bundled llama-server.exe (llama.cpp CPU build + its DLLs in
+  # resources/bin) is 64-bit. Electron 39 itself requires Windows 10+.
+  #
+  # nsis is required (not just convenient): it's the target electron-updater's
+  # NsisUpdater consumes, and building it emits latest.yml + the .blockmap that
+  # in-app updates verify against (the Windows analogue of latest-mac.yml).
+  target:
+    - target: nsis
+      arch: [x64]
+  # Unsigned for now — signing needs an Authenticode cert (see docs/RELEASE.md
+  # for the macOS pipeline this should mirror). Once signing lands, also set
+  # publisherName so electron-updater verifies the certificate on updates:
+  # NSIS has no Squirrel.Mac-style OS signature gate of its own.
+
+nsis:
+  # One-click per-user install: no admin prompt, no wizard — right default for
+  # the elder-focused audience. Per-user also lets in-app updates install
+  # without elevation.
+  oneClick: true
+  perMachine: false
+  # Keep session/model data across uninstall-reinstall cycles; users can clear
+  # userData manually. Deleting it here would silently drop WhatsApp pairing.
+  deleteAppDataOnUninstall: false
+
 # Model updates ship on their own channel — never re-download the model for an
 # app patch (see Phase 6). The model is NOT packaged into the installer.
 #

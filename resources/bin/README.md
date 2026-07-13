@@ -7,6 +7,17 @@ the Metal backend survives the hardened runtime.
 
 Expected file: `llama-server` (macOS/Linux) or `llama-server.exe` (Windows).
 
+## Windows
+
+Use the official prebuilt Windows x64 **CPU** package from
+[llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)
+(`llama-<build>-bin-win-cpu-x64.zip`) — the CPU backend runs everywhere; a
+Vulkan/CUDA variant can replace it later for GPU acceleration. Copy
+`llama-server.exe` **and every `*.dll` next to it** into this directory:
+unlike the static macOS binary, the Windows build dynamically loads
+`llama.dll`/`ggml*.dll` at runtime. All of these are git-ignored and picked up
+by the `extraResources` glob in `electron-builder.yml`.
+
 ## Signing (macOS)
 
 Because this binary lands inside the `.app`, electron-builder deep-signs it with
