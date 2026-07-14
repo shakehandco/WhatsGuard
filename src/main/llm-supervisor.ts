@@ -44,6 +44,27 @@ function findFreePort(host: string): Promise<number> {
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 /**
+ * Human hint for llama-server exit codes we've hit in the field. On Windows,
+ * NTSTATUS loader failures surface as huge unsigned exit codes — decimal
+ * 3221225785 in a log is 0xC0000139, which no one recognises at 2am.
+ */
+function exitHint(code: number | null): string {
+  switch (code) {
+    case 139:
+      return 'Code 139 (SIGSEGV) usually means a corrupt/incompatible model.'
+    case 0xc0000135: // STATUS_DLL_NOT_FOUND
+      return 'Code 0xC0000135: a DLL required by llama-server.exe is missing from its directory.'
+    case 0xc0000139: // STATUS_ENTRYPOINT_NOT_FOUND
+      return (
+        'Code 0xC0000139: a DLL is missing next to llama-server.exe or a mismatched ' +
+        'version was loaded from elsewhere on the system (entry point not found).'
+      )
+    default:
+      return ''
+  }
+}
+
+/**
  * Spawns and supervises the local llama-server child process.
  *
  * Inference is event-driven: the server can be unloaded after idle to free RAM
@@ -136,7 +157,9 @@ export class LlamaSupervisor {
         'ERROR',
         'llama',
         `circuit breaker tripped after ${max} failures; cooling down. ` +
-          `Last exit ${this.lastExitCode}. Likely a corrupt model — re-verify the GGUF checksum.`
+          `Last exit ${this.lastExitCode}. ` +
+          (exitHint(this.lastExitCode) ||
+            'Likely a corrupt model — re-verify the GGUF checksum.')
       )
     }
   }
@@ -178,10 +201,7 @@ export class LlamaSupervisor {
         if (!settled && !this.stopped) {
           settled = true
           reject(
-            new Error(
-              `llama-server exited during startup (code ${code}). ` +
-                (code === 139 ? 'Code 139 (SIGSEGV) usually means a corrupt/incompatible model.' : '')
-            )
+            new Error(`llama-server exited during startup (code ${code}). ${exitHint(code)}`)
           )
         }
       }
