@@ -522,7 +522,86 @@ button.danger:hover {
   margin: 16px 0;
 }
 
+.wiz-name-row {
+  margin-top: 4px;
+}
+
+.wiz-name-label {
+  margin: 16px 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .wiz-err {
   color: var(--high);
   font-weight: 600;
+}
+
+/* ---- Account selector ---- */
+.account-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.account-select {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--accent);
+}
+
+#add-account-btn {
+  font-size: 20px;
+  font-weight: 700;
+  padding: 4px 10px;
+  line-height: 1;
+}
+
+#account-delete-btn {
+  font-size: 15px;
+  padding: 4px 8px;
+}
+
+/* ---- Inline add-account form ---- */
+.add-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.add-account-input {
+  font-size: 15px;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.add-account-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- Account empty screen ---- */
+.account-empty-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.account-empty-footer {
+  margin-top: 28px;
+  text-align: center;
 }

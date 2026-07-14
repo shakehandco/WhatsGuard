@@ -1,12 +1,11 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { rm, statfs } from 'fs/promises'
+import { statfs } from 'fs/promises'
 import { join } from 'path'
 import { IPC } from '@shared/ipc'
-import type { IncomingMessage, ModelTier, SessionState } from '@shared/types'
-import { WhatsAppBridge, sessionDataPath } from './whatsapp-bridge'
-import { filterMessage, isSafeListedSender } from './message-filter'
-import { ChatHistory } from './chat-history'
+import type { AccountID, AccountMeta } from '@shared/account-types'
+import type { ModelTier, SessionState } from '@shared/types'
 import { Store } from './store'
+import { AccountManager } from './account-manager'
 import {
   DEFAULT_TIER,
   detectHardware,
@@ -23,7 +22,7 @@ import { Classifier } from './classifier'
 import { LlamaSupervisor } from './llm-supervisor'
 import { RiskEngine } from './risk-engine'
 import { TrayController } from './tray'
-import { clearLogs, initLogs, logActivity, logSystem, logsDir, type ActivityEntry } from './logger'
+import { clearLogs, initLogs, logSystem, logsDir } from './logger'
 import { initAutoUpdate } from './updater'
 import { normalizeLang, type Lang } from '@shared/i18n'
 
@@ -37,21 +36,21 @@ process.on('unhandledRejection', (reason) => {
 })
 
 let mainWindow: BrowserWindow | undefined
-let bridge: WhatsAppBridge | undefined
 let store: Store | undefined
+let accountManager: AccountManager | undefined
 let supervisor: LlamaSupervisor | undefined
 let classifier: Classifier | undefined
 let riskEngine: RiskEngine | undefined
 let tray: TrayController | undefined
 let isQuitting = false
-let bridgeStarted = false
 let currentLang: Lang = 'en'
 // Active model tier (4B/12B). Resolved at startup from the stored choice, the
 // hardware recommendation, or whatever model is already on disk.
 let currentTier: ModelTier = DEFAULT_TIER
 // Date the active scam-rules config was last updated (shown in System info).
 let scamRulesUpdatedAt = ''
-const history = new ChatHistory()
+/** The account the renderer is currently viewing. */
+let activeAccountId: AccountID | null = null
 
 function showWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -105,106 +104,57 @@ function sendToRenderer(channel: string, payload: unknown): void {
   }
 }
 
-/** Common audit-log fields for a message. */
-function activityBase(msg: IncomingMessage): Omit<ActivityEntry, 'decision'> {
-  return {
-    chatId: msg.chatId,
-    sender: msg.sender,
-    senderName: msg.senderName,
-    type: msg.type,
-    body: msg.body.slice(0, 4000),
-    isGroup: msg.chatId.endsWith('@g.us')
+/** Session state changed for a specific account — forward to renderer + tray. */
+function onSessionState(accountId: AccountID, state: SessionState): void {
+  logSystem('INFO', 'session', `[${accountId}] ${state.status}${state.detail ? ` — ${state.detail}` : ''}`)
+  // Only forward session state for the active account to avoid confusing the UI.
+  if (accountId === activeAccountId) {
+    sendToRenderer(IPC.sessionStateChanged, state)
   }
-}
-
-/** New incoming message → filter → classify (event-driven LLM) → risk decision. */
-function onIncomingMessage(msg: IncomingMessage): void {
-  const safeList = store?.getSafeList() ?? []
-  // Trusted contacts are fully private: never buffer them in history, never write
-  // them to the activity log, never analyse them. Bail before any of that.
-  if (isSafeListedSender(msg, safeList)) return
-  history.record(msg)
-  const result = filterMessage(msg, safeList)
-  if (!result.pass) {
-    logActivity({ ...activityBase(msg), decision: 'dropped', filterReason: result.reason })
-    return
-  }
-  void analyse(msg)
-}
-
-async function analyse(msg: IncomingMessage): Promise<void> {
-  if (!supervisor || !classifier || !riskEngine || !store) return
-  const context = history.context(msg.chatId)
-  try {
-    await supervisor.ensureStarted() // warm the model on demand
-    const verdict = await classifier.classify(msg, context)
-    logActivity({ ...activityBase(msg), decision: 'analysed', verdict })
-    const record = riskEngine.process(msg, verdict)
-    if (record) {
-      store.addVerdict(record)
-      sendToRenderer(IPC.newAlert, record)
-      logSystem('INFO', 'alert', `${record.verdict.risk}/${record.verdict.category} from ${msg.senderName}`)
-    }
-  } catch (err) {
-    // Degrade gracefully — a model/inference failure must not crash monitoring.
-    logActivity({ ...activityBase(msg), decision: 'not_analysed', note: String(err) })
-    logSystem('WARN', 'analyse', `skipped: ${String(err)}`)
-  }
-}
-
-function onSessionState(state: SessionState): void {
-  logSystem('INFO', 'session', `${state.status}${state.detail ? ` — ${state.detail}` : ''}`)
-  sendToRenderer(IPC.sessionStateChanged, state)
-  tray?.update(state) // red icon + native notification on disconnect
+  tray?.updateAggregate(accountManager?.aggregate() ?? { total: 0, ready: 0, needsAttention: false })
 }
 
 /**
- * Begin protecting: start the WhatsApp bridge (so messages flow) and warm the
- * model if present. Idempotent. Called only AFTER consent — we never read
- * messages before the user has agreed.
+ * Begin protecting the active account: start its bridge and warm the model.
+ * Idempotent. Called only AFTER consent — we never read messages before the
+ * user has agreed.
  */
 async function startProtection(): Promise<void> {
+  if (!activeAccountId || !accountManager) return
   if (supervisor?.preflight().ok) {
     supervisor.ensureStarted().catch((err) => logSystem('ERROR', 'llm', `could not start: ${String(err)}`))
   } else {
     logSystem('WARN', 'llm', 'model not present yet — classification deferred until downloaded')
   }
-  if (bridgeStarted || !bridge) return
-  bridgeStarted = true
-  try {
-    await bridge.start()
-  } catch (err) {
-    logSystem('ERROR', 'bridge', `failed to start: ${String(err)}`)
-    onSessionState({ status: 'disconnected', detail: String(err) })
-  }
+  await accountManager.startAccount(activeAccountId)
 }
 
 /**
- * Factory reset: unlink the WhatsApp number and erase all local data. The user
- * confirms in the renderer before this runs. The downloaded model is kept (it is
- * not tied to the number and is costly to re-fetch). Afterwards the renderer
- * reloads into the first-run wizard; re-consenting there restarts protection.
+ * Factory reset for the active account: unlink WhatsApp, erase local data,
+ * and reset the bridge so a fresh QR can be scanned. If no accounts remain,
+ * the renderer reloads into the first-run wizard.
  */
 async function disconnectAndReset(): Promise<void> {
-  logSystem('INFO', 'disconnect', 'user requested disconnect & erase')
-  await bridge?.disconnect() // unlink device (best-effort) + drop socket
-  await rm(sessionDataPath(), { recursive: true, force: true }) // WhatsApp session cache
-  clearLogs()
-  store?.reset() // verdicts + safe-list + consent + language
-  history.clear() // in-memory chat context
+  if (!activeAccountId || !accountManager) return
+  logSystem('INFO', 'disconnect', `user requested disconnect & erase for account ${activeAccountId}`)
+  await accountManager.disconnectAccount(activeAccountId)
 
-  // Reset runtime state so the wizard's re-consent can start cleanly: a fresh,
-  // non-closing bridge with bridgeStarted cleared (otherwise startProtection
-  // early-returns and the QR never appears).
-  bridgeStarted = false
-  bridge = new WhatsAppBridge({
-    sessionDataPath: sessionDataPath(),
-    onSessionState,
-    onMessage: onIncomingMessage
-  })
-  currentLang = detectOsLang()
-  tray?.refreshMenu()
-  tray?.update(bridge.getState())
+  // If this was the last account, go back to the first-run wizard.
+  if (accountManager.listMeta().length === 0) {
+    clearLogs()
+    activeAccountId = null
+    sendToRenderer(IPC.sessionStateChanged, { status: 'initializing' })
+    return
+  }
+
+  // Otherwise switch to the first remaining account.
+  const remaining = accountManager.listMeta()
+  activeAccountId = remaining[0]?.id ?? null
+  const bridge = activeAccountId ? accountManager.getBridge(activeAccountId) : undefined
+  if (bridge) {
+    sendToRenderer(IPC.sessionStateChanged, bridge.getState())
+    tray?.updateAggregate(accountManager.aggregate())
+  }
 }
 
 /** Construct a supervisor pointed at a given tier's GGUF + projector. */
@@ -267,14 +217,45 @@ async function switchModel(tier: ModelTier): Promise<void> {
 }
 
 function registerIpc(): void {
-  ipcMain.handle(IPC.getSessionState, () => bridge?.getState() ?? { status: 'initializing' })
+  // --- account CRUD ---
+  ipcMain.handle(IPC.accountList, (): AccountMeta[] => accountManager?.listMeta() ?? [])
+  ipcMain.handle(IPC.accountCreate, async (_e, label: string): Promise<AccountMeta> => {
+    const meta = await accountManager!.create(label)
+    // Auto-activate the newly created account.
+    activeAccountId = meta.id
+    return meta
+  })
+  ipcMain.handle(IPC.accountDelete, async (_e, id: AccountID): Promise<void> => {
+    await accountManager?.deleteAccount(id)
+    if (activeAccountId === id) {
+      const remaining = accountManager?.listMeta() ?? []
+      activeAccountId = remaining[0]?.id ?? null
+    }
+  })
+  ipcMain.handle(IPC.accountActivate, (_e, id: AccountID): void => {
+    activeAccountId = id
+    // Push the new account's session state to the renderer immediately.
+    const bridge = accountManager?.getBridge(id)
+    if (bridge) sendToRenderer(IPC.sessionStateChanged, bridge.getState())
+  })
+  ipcMain.handle(IPC.accountRename, (_e, id: AccountID, label: string): void => {
+    store?.renameAccount(id, label)
+  })
+
+  // --- active-account scoped ---
+  ipcMain.handle(IPC.getSessionState, () => {
+    if (!activeAccountId) return { status: 'initializing' as const }
+    return accountManager?.getBridge(activeAccountId)?.getState() ?? { status: 'initializing' as const }
+  })
   ipcMain.handle(IPC.getOnboardingState, () => ({
-    consentGiven: store?.hasConsent() ?? false,
+    consentGiven: activeAccountId ? (store?.hasConsent(activeAccountId) ?? false) : false,
     modelPresent: isModelPresent(currentTier)
   }))
   ipcMain.handle(IPC.recordConsent, () => {
-    store?.recordConsent()
-    void startProtection() // safe to read messages now
+    if (activeAccountId) {
+      store?.recordConsent(activeAccountId)
+      void startProtection()
+    }
   })
   ipcMain.handle(IPC.startModelDownload, (_e, tier?: ModelTier) => {
     if (tier) {
@@ -284,19 +265,33 @@ function registerIpc(): void {
     }
     void runModelDownload(currentTier)
   })
-  ipcMain.handle(IPC.listAlerts, () => store?.listVerdicts() ?? [])
+  ipcMain.handle(IPC.listAlerts, () => {
+    if (!activeAccountId) return []
+    return store?.listVerdicts(activeAccountId) ?? []
+  })
   ipcMain.handle(IPC.dismissAlert, (_e, id: string, wasFalsePositive: boolean) => {
-    const rec = store?.listVerdicts().find((v) => v.id === id)
-    store?.dismissVerdict(id)
+    if (!activeAccountId) return
+    const rec = store?.listVerdicts(activeAccountId).find((v) => v.id === id)
+    store?.dismissVerdict(activeAccountId, id)
     if (rec) riskEngine?.recordDismissal(rec.verdict.category, wasFalsePositive)
   })
-  ipcMain.handle(IPC.purgeAll, () => store?.purgeVerdicts())
-  ipcMain.handle(IPC.getSafeList, () => store?.getSafeList() ?? [])
-  ipcMain.handle(IPC.addSafeNumber, (_e, num: string) => store?.addSafeNumber(num))
-  ipcMain.handle(IPC.removeSafeNumber, (_e, num: string) => store?.removeSafeNumber(num))
+  ipcMain.handle(IPC.purgeAll, () => {
+    if (activeAccountId) store?.purgeVerdicts(activeAccountId)
+  })
+  ipcMain.handle(IPC.getSafeList, () => {
+    if (!activeAccountId) return []
+    return store?.getSafeList(activeAccountId) ?? []
+  })
+  ipcMain.handle(IPC.addSafeNumber, (_e, num: string) => {
+    if (activeAccountId) store?.addSafeNumber(activeAccountId, num)
+  })
+  ipcMain.handle(IPC.removeSafeNumber, (_e, num: string) => {
+    if (activeAccountId) store?.removeSafeNumber(activeAccountId, num)
+  })
   ipcMain.handle(IPC.getHardwareInfo, () => detectHardware())
   ipcMain.handle(IPC.getSystemInfo, () => {
     const tier = currentTier
+    const bridge = activeAccountId ? accountManager?.getBridge(activeAccountId) : undefined
     return {
       appVersion: app.getVersion(),
       modelName: modelFileName(tier),
@@ -311,7 +306,6 @@ function registerIpc(): void {
   })
   ipcMain.handle(IPC.openLogs, () => void shell.openPath(logsDir()))
   ipcMain.handle(IPC.quitApp, () => {
-    // Graceful shutdown: before-quit stops the model + bridge + tray cleanly.
     isQuitting = true
     app.quit()
   })
@@ -323,7 +317,6 @@ function registerIpc(): void {
     currentLang = lang
     store?.setLanguage(lang)
     tray?.refreshMenu()
-    if (bridge) tray?.update(bridge.getState()) // refresh tooltip in new language
   })
 }
 
@@ -366,9 +359,23 @@ app.whenReady().then(async () => {
   classifier = new Classifier(config, {
     endpoint: () => supervisor!.endpoint(),
     language: () => currentLang,
-    // The 12B is much slower (and warms up Metal on first use), so give it a far
-    // longer budget than the 4B before aborting.
     timeoutMs: () => (currentTier === '12b' ? 300_000 : 90_000)
+  })
+
+  // Multi-account manager: routes messages per-account, owns bridge lifecycle.
+  accountManager = new AccountManager({
+    store,
+    getClassifier: () => classifier,
+    getRiskEngine: () => riskEngine,
+    onAlert: (accountId, record) => {
+      // Only surface alerts for the active account.
+      if (accountId === activeAccountId) sendToRenderer(IPC.newAlert, record)
+    },
+    onSessionState,
+    onAggregateChange: (status) => {
+      sendToRenderer(IPC.aggregateStatusChanged, status)
+      tray?.updateAggregate(status)
+    }
   })
 
   tray = new TrayController({
@@ -389,19 +396,18 @@ app.whenReady().then(async () => {
   // + latest-mac.yml SHA-512). Quiet: downloads in background, installs on quit.
   initAutoUpdate(app.isPackaged)
 
-  bridge = new WhatsAppBridge({
-    sessionDataPath: sessionDataPath(),
-    onSessionState,
-    onMessage: onIncomingMessage
-  })
+  // Restore all consenting accounts at startup.
+  await accountManager.restoreAll()
+
+  // Set the active account to the first one (if any).
+  const accounts = accountManager.listMeta()
+  activeAccountId = accounts[0]?.id ?? null
 
   registerIpc()
   createWindow()
 
-  // Only start reading WhatsApp once the user has consented. A returning,
-  // already-onboarded user starts protecting immediately; a first-run user
-  // sees the wizard, and consent (then download) drives startup via IPC.
-  if (store.hasConsent()) {
+  // Auto-start protection for the active account if it already has consent.
+  if (activeAccountId && store.hasConsent(activeAccountId)) {
     void startProtection()
   } else {
     logSystem('INFO', 'onboarding', 'awaiting consent — wizard will drive setup')
@@ -412,16 +418,16 @@ app.whenReady().then(async () => {
   })
 })
 
-// Tray/menubar app: stay alive when the UI window is closed (Phase 3 adds tray).
+// Tray/menubar app: stay alive when the UI window is closed.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     /* keep running in background on all platforms; no-op */
   }
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   isQuitting = true
-  void supervisor?.stop()
-  void bridge?.destroy()
+  await supervisor?.stop()
+  await accountManager?.destroyAll()
   tray?.destroy()
 })

@@ -1,5 +1,6 @@
 import { Tray, Menu, Notification, nativeImage, app } from 'electron'
 import type { SessionState, SessionStatus } from '@shared/types'
+import type { AggregateStatus } from '@shared/account-types'
 import { t, type Lang } from '@shared/i18n'
 
 /** Menubar glyph per session status (language-neutral). */
@@ -31,7 +32,8 @@ export interface TrayControllerOptions {
  */
 export class TrayController {
   private tray?: Tray
-  private prevStatus?: SessionStatus
+  private prevNeedsAttention = false
+  private aggregate: AggregateStatus = { total: 0, ready: 0, needsAttention: false }
 
   constructor(private readonly opts: TrayControllerOptions) {}
 
@@ -58,20 +60,43 @@ export class TrayController {
     )
   }
 
-  update(state: SessionState): void {
+  /**
+   * Update the tray icon and tooltip from the aggregate status across all
+   * accounts. Fires a native notification when any account transitions into
+   * a disconnected/auth-failure state.
+   */
+  updateAggregate(status: AggregateStatus): void {
     if (!this.tray) return
     const lang = this.opts.getLang()
-    this.tray.setTitle(STATUS_GLYPH[state.status] ?? '○')
-    this.tray.setToolTip(t(lang, `tray_tip_${state.status}`))
 
-    // Fire a native notification only on the transition INTO an attention state,
-    // so we prompt once per drop rather than nagging repeatedly.
-    const entering =
-      NEEDS_ATTENTION.includes(state.status) &&
-      this.prevStatus !== undefined &&
-      !NEEDS_ATTENTION.includes(this.prevStatus)
+    // Glyph: ⛔ if any account needs attention, ● if all ready+connected,
+    // ◐ if some are still linking, ○ if nothing running.
+    if (status.total === 0) {
+      this.tray.setTitle('○')
+      this.tray.setToolTip('WhatsGuard')
+    } else if (status.needsAttention) {
+      this.tray.setTitle('⛔')
+      this.tray.setToolTip(`WhatsGuard — ${status.ready}/${status.total} connected`)
+    } else if (status.ready === status.total) {
+      this.tray.setTitle('●')
+      this.tray.setToolTip(`WhatsGuard — ${status.ready}/${status.total} protected`)
+    } else {
+      this.tray.setTitle('◐')
+      this.tray.setToolTip(`WhatsGuard — ${status.ready}/${status.total} connecting`)
+    }
+
+    // Fire a native notification only when transitioning INTO needing attention.
+    const entering = status.needsAttention && !this.prevNeedsAttention && status.total > 0
     if (entering) this.notifyDisconnected(lang)
-    this.prevStatus = state.status
+
+    this.prevNeedsAttention = status.needsAttention
+    this.aggregate = status
+  }
+
+  /** Kept for backward compatibility — delegates to aggregate. */
+  update(state: SessionState): void {
+    // Single-account update is no longer meaningful; no-op.
+    // The caller should use updateAggregate instead.
   }
 
   private notifyDisconnected(lang: Lang): void {

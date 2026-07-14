@@ -14,12 +14,56 @@
     <!-- First-run wizard (rendered by wizard.ts) -->
     <div id="wizard" hidden></div>
 
+    <!-- No accounts yet -->
+    <div id="account-empty" hidden class="account-empty-screen">
+      <div class="wiz-card">
+        <h1>WhatsGuard</h1>
+        <p id="account-empty-text" class="lead">No accounts yet. Add one to start protecting.</p>
+        <button id="account-empty-btn" class="wiz-btn" type="button">Add WhatsApp account</button>
+        <div id="empty-add-form-inline" hidden>
+          <input id="empty-add-input-inline" type="text" class="add-account-input" autocomplete="off" style="width:100%;margin-bottom:12px" placeholder="e.g. Mom's phone" />
+          <button id="empty-add-confirm-inline" class="wiz-btn" type="button" style="margin-bottom:8px">Confirm</button>
+          <button id="empty-add-cancel" class="wiz-skip" type="button" style="margin-top:0">Cancel</button>
+          <p id="empty-add-error-inline" class="field-error" hidden></p>
+        </div>
+        <div class="account-empty-footer">
+          <select id="empty-lang-select" aria-label="Language"></select>
+          <p id="empty-quit-title" class="muted" style="margin-top:24px">Shut down</p>
+          <p id="empty-quit-lead" class="muted" style="margin-bottom:8px">Stop checking messages and close WhatsGuard completely.</p>
+          <button id="empty-quit-btn" class="danger" type="button">Quit WhatsGuard</button>
+          <p id="empty-company-credit" style="margin-top:32px">Developed by AI Pedals</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Main dashboard (shown once onboarded) -->
     <main id="dashboard" hidden>
       <header>
         <div class="header-row">
           <h1>WhatsGuard</h1>
           <select id="lang-select" aria-label="Language"></select>
+        </div>
+        <!-- Account selector -->
+        <div class="account-bar">
+          <select id="account-select" class="account-select" aria-label="Select account"></select>
+          <button id="rename-account-btn" class="link" type="button" title="Rename account">✎</button>
+          <button id="add-account-btn" class="link" type="button" title="Add account">+</button>
+          <button id="account-delete-btn" class="link-danger" type="button" title="Remove account">✕</button>
+        </div>
+        <div id="rename-account-form" class="add-account-form" hidden>
+          <input id="rename-account-input" type="text" class="add-account-input" autocomplete="off" />
+          <div class="add-account-actions">
+            <button id="rename-account-cancel" class="link" type="button">Cancel</button>
+            <button id="rename-account-confirm" class="wiz-btn" type="button" style="width:auto;padding:8px 18px;font-size:15px">Save</button>
+          </div>
+        </div>
+        <div id="add-account-form" class="add-account-form" hidden>
+          <input id="add-account-input" type="text" class="add-account-input" autocomplete="off" placeholder="e.g. Mom's phone" />
+          <div class="add-account-actions">
+            <button id="add-account-cancel" class="link" type="button">Cancel</button>
+            <button id="add-account-confirm" class="wiz-btn" type="button" style="width:auto;padding:8px 18px;font-size:15px">Add</button>
+          </div>
+          <p id="add-account-error" class="field-error" hidden></p>
         </div>
         <p class="tagline" id="tagline">Everything stays on your computer.</p>
         <nav class="tabs" role="tablist">

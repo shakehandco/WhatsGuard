@@ -1,4 +1,4 @@
-import { SELECTABLE_MODELS, type ModelTier, type SessionState, type VerdictRecord } from '@shared/types'
+import { SELECTABLE_MODELS, type ModelTier, type SessionState, type VerdictRecord, type AccountMeta, type AccountID } from '@shared/types'
 import { t, LANGS, LANG_LOCALE, type Lang } from '@shared/i18n'
 import { runWizard } from './wizard'
 
@@ -331,6 +331,20 @@ function applyStaticText(): void {
 
   $('company-credit').textContent = t(lang, 'company_credit')
 
+  // Update the inline add-account input placeholder (may be hidden — that's fine).
+  const addInput = document.getElementById('add-account-input') as HTMLInputElement | null
+  if (addInput) addInput.placeholder = t(lang, 'account_name_placeholder')
+
+  // Update inline form button texts for language changes.
+  const addConfirm = document.getElementById('add-account-confirm')
+  if (addConfirm) addConfirm.textContent = t(lang, 'account_add')
+  const addCancel = document.getElementById('add-account-cancel')
+  if (addCancel) addCancel.textContent = t(lang, 'cancel')
+  const renameCancel = document.getElementById('rename-account-cancel')
+  if (renameCancel) renameCancel.textContent = t(lang, 'cancel')
+  const renameConfirm = document.getElementById('rename-account-confirm')
+  if (renameConfirm) renameConfirm.textContent = t(lang, 'save')
+
   renderSession(lastSession)
 }
 
@@ -356,37 +370,306 @@ function buildLangSelect(): void {
 
 async function showDashboard(): Promise<void> {
   $('wizard').hidden = true
+  $('account-empty').hidden = true
   $('dashboard').hidden = false
   buildLangSelect()
   applyStaticText()
   modelTier = await window.whatsguard.getModelTier()
+  await buildAccountSelector()
   wireTabs()
   wireSafeList()
   wireQuit()
   wireDisconnect()
   wireModel()
+  wireAddAccount()
   renderModelOptions()
   showTab('home')
   renderSession(await window.whatsguard.getSessionState())
   window.whatsguard.onSessionState(renderSession)
   window.whatsguard.onAlert(() => void refreshAlerts())
-  // Model health and the linked number change as the app connects — refresh
-  // system info on each session-state change so the card stays current.
   window.whatsguard.onSessionState(() => void refreshSystemInfo())
   await refreshAlerts()
   await refreshSafeList()
   await refreshSystemInfo()
 }
 
+/** Build the account selector dropdown. */
+async function buildAccountSelector(): Promise<void> {
+  const accounts = await window.whatsguard.listAccounts()
+  const sel = $<HTMLSelectElement>('account-select')
+  sel.innerHTML = ''
+  for (const acc of accounts) {
+    const opt = document.createElement('option')
+    opt.value = acc.id
+    opt.textContent = acc.label + (acc.phoneNumber ? ` (${acc.phoneNumber})` : '')
+    sel.append(opt)
+  }
+  // Set the selected value to the first account (the active one on load).
+  if (accounts.length > 0) sel.value = accounts[0].id
+
+  sel.onchange = async (): Promise<void> => {
+    const id = sel.value as AccountID
+    if (!id) return
+    await window.whatsguard.activateAccount(id)
+    // Refresh all per-account data.
+    await refreshAlerts()
+    await refreshSafeList()
+    await refreshSystemInfo()
+    renderSession(await window.whatsguard.getSessionState())
+  }
+
+  // Wire delete button.
+  $<HTMLButtonElement>('account-delete-btn').onclick = async (): Promise<void> => {
+    const id = sel.value as AccountID
+    if (!id) return
+    const accounts = await window.whatsguard.listAccounts()
+    const acc = accounts.find((a) => a.id === id)
+    if (!acc) return
+    if (!window.confirm(t(lang, 'account_delete_confirm'))) return
+    await window.whatsguard.deleteAccount(id)
+    location.reload()
+  }
+
+  // Wire rename button.
+  wireRenameAccount()
+}
+
+/** Wire the "Add Account" button in the dashboard header. */
+function wireAddAccount(): void {
+  const form = $('add-account-form')
+  const input = $<HTMLInputElement>('add-account-input')
+  const confirmBtn = $<HTMLButtonElement>('add-account-confirm')
+  const cancelBtn = $<HTMLButtonElement>('add-account-cancel')
+  const error = $('add-account-error')
+  const addBtn = $<HTMLButtonElement>('add-account-btn')
+
+  input.placeholder = t(lang, 'account_name_placeholder')
+  confirmBtn.textContent = t(lang, 'account_add')
+  cancelBtn.textContent = t(lang, 'cancel')
+
+  const showForm = (): void => {
+    form.hidden = false
+    input.value = ''
+    error.hidden = true
+    input.focus()
+    addBtn.hidden = true
+    // Hide rename button while adding — only one inline form at a time.
+    const renameBtn = document.getElementById('rename-account-btn')
+    if (renameBtn) renameBtn.hidden = true
+  }
+
+  const hideForm = (): void => {
+    form.hidden = true
+    addBtn.hidden = false
+    const renameBtn = document.getElementById('rename-account-btn')
+    if (renameBtn) renameBtn.hidden = false
+  }
+
+  addBtn.onclick = showForm
+
+  const submit = async (): Promise<void> => {
+    const label = input.value.trim()
+    if (!label) {
+      error.textContent = t(lang, 'account_name_label')
+      error.hidden = false
+      return
+    }
+    error.hidden = true
+    hideForm()
+    const meta = await window.whatsguard.createAccount(label)
+    await window.whatsguard.activateAccount(meta.id)
+    const ob = await window.whatsguard.getOnboardingState()
+    if (!ob.consentGiven || !ob.modelPresent) {
+      $('dashboard').hidden = true
+      $('wizard').hidden = false
+      runWizard(ob, lang, meta.id, () => {
+        location.reload()
+      })
+    } else {
+      location.reload()
+    }
+  }
+
+  confirmBtn.onclick = (): void => void submit()
+  input.onkeydown = (e): void => {
+    if (e.key === 'Enter') void submit()
+    if (e.key === 'Escape') hideForm()
+  }
+  cancelBtn.onclick = hideForm
+}
+
+/** Wire the rename-account button + inline form. */
+function wireRenameAccount(): void {
+  const renameBtn = $<HTMLButtonElement>('rename-account-btn')
+  const form = $('rename-account-form')
+  const input = $<HTMLInputElement>('rename-account-input')
+  const confirmBtn = $<HTMLButtonElement>('rename-account-confirm')
+  const cancelBtn = $<HTMLButtonElement>('rename-account-cancel')
+  const sel = $<HTMLSelectElement>('account-select')
+
+  input.placeholder = t(lang, 'account_name_placeholder')
+  cancelBtn.textContent = t(lang, 'cancel')
+  confirmBtn.textContent = t(lang, 'save')
+
+  const showForm = (): void => {
+    const selectedOption = sel.options[sel.selectedIndex]
+    input.value = selectedOption?.textContent?.split(' (')[0] ?? ''
+    form.hidden = false
+    renameBtn.hidden = true
+    // Hide add button while renaming — only one inline form at a time.
+    const addBtn = document.getElementById('add-account-btn')
+    if (addBtn) addBtn.hidden = true
+    input.focus()
+    input.select()
+  }
+
+  const hideForm = (): void => {
+    form.hidden = true
+    renameBtn.hidden = false
+    const addBtn = document.getElementById('add-account-btn')
+    if (addBtn) addBtn.hidden = false
+  }
+
+  renameBtn.onclick = showForm
+
+  const submit = async (): Promise<void> => {
+    const label = input.value.trim()
+    if (!label) return
+    const id = sel.value as AccountID
+    if (!id) return
+    await window.whatsguard.renameAccount(id, label)
+    // Rebuild the selector to reflect the new name.
+    await buildAccountSelector()
+    hideForm()
+  }
+
+  confirmBtn.onclick = (): void => void submit()
+  input.onkeydown = (e): void => {
+    if (e.key === 'Enter') void submit()
+    if (e.key === 'Escape') hideForm()
+  }
+  cancelBtn.onclick = hideForm
+}
+
+/** Show the "no accounts yet" screen. */
+function showAccountEmpty(): void {
+  $('wizard').hidden = true
+  $('dashboard').hidden = true
+  $('account-empty').hidden = false
+
+  $('account-empty-text').textContent = t(lang, 'account_empty')
+  $<HTMLButtonElement>('account-empty-btn').textContent = t(lang, 'account_add')
+
+  // Two-step: click "Add" → show inline input → submit creates the account.
+  const btn = $<HTMLButtonElement>('account-empty-btn')
+  const form = $('empty-add-form-inline')
+  const input = $<HTMLInputElement>('empty-add-input-inline')
+  const confirmBtn = $<HTMLButtonElement>('empty-add-confirm-inline')
+  const cancelBtn = $<HTMLButtonElement>('empty-add-cancel')
+  const error = $('empty-add-error-inline')
+
+  confirmBtn.textContent = t(lang, 'account_add')
+  cancelBtn.textContent = t(lang, 'cancel')
+  input.placeholder = t(lang, 'account_name_placeholder')
+
+  const showForm = (): void => {
+    btn.hidden = true
+    form.hidden = false
+    input.value = ''
+    error.hidden = true
+    input.focus()
+  }
+
+  const hideForm = (): void => {
+    btn.hidden = false
+    form.hidden = true
+  }
+
+  btn.onclick = showForm
+
+  const submit = async (): Promise<void> => {
+    const label = input.value.trim()
+    if (!label) {
+      error.textContent = t(lang, 'account_name_label')
+      error.hidden = false
+      return
+    }
+    const meta = await window.whatsguard.createAccount(label)
+    await window.whatsguard.activateAccount(meta.id)
+    const ob = await window.whatsguard.getOnboardingState()
+    $('account-empty').hidden = true
+    $('wizard').hidden = false
+    runWizard(ob, lang, meta.id, () => {
+      location.reload()
+    })
+  }
+
+  confirmBtn.onclick = (): void => void submit()
+  input.onkeydown = (e): void => {
+    if (e.key === 'Enter') void submit()
+    if (e.key === 'Escape') hideForm()
+  }
+  cancelBtn.onclick = hideForm
+
+  // Wire the empty-state language selector (separate from dashboard's).
+  buildEmptyLangSelect()
+  // Wire the empty-state quit button.
+  $('empty-quit-title').textContent = t(lang, 'quit_title')
+  $('empty-quit-lead').textContent = t(lang, 'quit_lead')
+  $<HTMLButtonElement>('empty-quit-btn').textContent = t(lang, 'quit_button')
+  $<HTMLButtonElement>('empty-quit-btn').onclick = (): void => {
+    if (window.confirm(t(lang, 'quit_confirm'))) void window.whatsguard.quitApp()
+  }
+  $('empty-company-credit').textContent = t(lang, 'company_credit')
+}
+
+/** Build the language selector for the empty-state screen. */
+function buildEmptyLangSelect(): void {
+  const sel = $<HTMLSelectElement>('empty-lang-select')
+  sel.innerHTML = ''
+  for (const { code, label } of LANGS) {
+    const opt = document.createElement('option')
+    opt.value = code
+    opt.textContent = label
+    if (code === lang) opt.selected = true
+    sel.append(opt)
+  }
+  sel.onchange = async (): Promise<void> => {
+    lang = sel.value as Lang
+    await window.whatsguard.setLanguage(lang)
+    // Re-render the empty screen in the new language.
+    showAccountEmpty()
+  }
+}
+
 async function init(): Promise<void> {
   lang = await window.whatsguard.getLanguage()
+  const accounts = await window.whatsguard.listAccounts()
+
+  if (accounts.length === 0) {
+    // Fresh install: auto-create an account with a default label, then run the
+    // wizard. The user sets the real name during the QR-linking step.
+    const meta = await window.whatsguard.createAccount('WhatsApp')
+    await window.whatsguard.activateAccount(meta.id)
+    const ob = await window.whatsguard.getOnboardingState()
+    $('wizard').hidden = false
+    $('dashboard').hidden = true
+    $('account-empty').hidden = true
+    runWizard(ob, lang, meta.id, () => void showDashboard())
+    return
+  }
+
+  // Activate the first account.
+  await window.whatsguard.activateAccount(accounts[0].id)
+
   const ob = await window.whatsguard.getOnboardingState()
   if (ob.consentGiven && ob.modelPresent) {
     await showDashboard()
   } else {
     $('wizard').hidden = false
     $('dashboard').hidden = true
-    runWizard(ob, lang, () => void showDashboard())
+    $('account-empty').hidden = true
+    runWizard(ob, lang, accounts[0].id, () => void showDashboard())
   }
 }
 

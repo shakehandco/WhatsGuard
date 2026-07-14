@@ -4,6 +4,7 @@ import { pathToFileURL } from 'url'
 import QRCode from 'qrcode'
 import type { WASocket, WAMessage, proto, ConnectionState, AuthenticationState } from 'baileys'
 import type { IncomingMessage, SessionState, SessionStatus } from '@shared/types'
+import type { AccountID } from '@shared/account-types'
 import { logSystem } from './logger'
 
 /** Bound reconnect attempts so a persistent failure can't loop forever. */
@@ -334,6 +335,8 @@ function isMediaContent(contentType: keyof proto.IMessage | undefined): boolean 
   )
 }
 
-export function sessionDataPath(): string {
+/** Resolve the WhatsApp session directory for a given account. */
+export function sessionDataPath(accountId?: AccountID): string {
+  if (accountId) return join(app.getPath('userData'), `whatsapp-session-${accountId}`)
   return join(app.getPath('userData'), 'whatsapp-session')
 }

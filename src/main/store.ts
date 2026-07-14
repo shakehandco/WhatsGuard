@@ -1,21 +1,24 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { randomUUID } from 'crypto'
 import { join } from 'path'
 import type { ModelTier, VerdictRecord } from '@shared/types'
 import type { Lang } from '@shared/i18n'
+import type { AccountID, AccountData } from '@shared/account-types'
 
 /**
  * Plain, unencrypted local store (encryption is explicitly out of scope).
  * Persists ONLY verdicts/flags and the user's safe-list — never full
  * conversation transcripts. Each verdict keeps a short excerpt, not the thread.
+ *
+ * Multi-account: safe-list, verdicts, and consent are per-account. Language and
+ * model tier are global (shared across accounts).
  */
 interface StoreData {
-  /** Trusted numbers; messages from these are never analysed. */
-  safeList: string[]
-  /** Flagged-message verdicts (newest last). */
-  verdicts: VerdictRecord[]
-  /** ISO timestamp when the user consented to monitoring; null if not yet. */
-  consentAt: string | null
+  /** All accounts keyed by their UUID. */
+  accounts: Record<AccountID, AccountData>
+  /** Stable ordering for the account list. */
+  accountOrder: AccountID[]
   /** Chosen UI/LLM language; null means "not set, use OS locale". */
   language: Lang | null
   /** Chosen model tier; null means "not set, use the hardware recommendation". */
@@ -23,13 +26,12 @@ interface StoreData {
 }
 
 const DEFAULT_DATA: StoreData = {
-  safeList: [],
-  verdicts: [],
-  consentAt: null,
+  accounts: {},
+  accountOrder: [],
   language: null,
   modelTier: null
 }
-/** Cap stored verdicts so the file can't grow unbounded. */
+/** Cap stored verdicts per account so the file can't grow unbounded. */
 const MAX_VERDICTS = 1000
 
 export class Store {
@@ -54,7 +56,24 @@ export class Store {
     try {
       if (existsSync(this.file)) {
         const parsed = JSON.parse(readFileSync(this.file, 'utf-8'))
-        return { ...DEFAULT_DATA, ...parsed }
+        const merged = { ...DEFAULT_DATA, ...parsed }
+        // Migrate legacy single-account data: if there is no accounts map
+        // but the old top-level keys exist, wrap them into one account.
+        if (
+          Object.keys(merged.accounts).length === 0 &&
+          (parsed.safeList || parsed.verdicts || parsed.consentAt)
+        ) {
+          const legacyId = randomUUID()
+          merged.accounts[legacyId] = {
+            id: legacyId,
+            label: 'My WhatsApp',
+            safeList: Array.isArray(parsed.safeList) ? parsed.safeList : [],
+            verdicts: Array.isArray(parsed.verdicts) ? parsed.verdicts : [],
+            consentAt: typeof parsed.consentAt === 'string' ? parsed.consentAt : null
+          }
+          merged.accountOrder = [legacyId]
+        }
+        return merged
       }
     } catch {
       // Corrupt file: start clean rather than crash. (Only verdicts are lost.)
@@ -66,7 +85,7 @@ export class Store {
     writeFileSync(this.file, JSON.stringify(this.data, null, 2), 'utf-8')
   }
 
-  // --- language ---
+  // --- language (global) ---
 
   getLanguage(): Lang | null {
     return this.data.language
@@ -77,7 +96,7 @@ export class Store {
     this.persist()
   }
 
-  // --- model tier ---
+  // --- model tier (global) ---
 
   getModelTier(): ModelTier | null {
     return this.data.modelTier
@@ -88,74 +107,129 @@ export class Store {
     this.persist()
   }
 
-  // --- consent ---
+  // --- account CRUD ---
 
-  hasConsent(): boolean {
-    return this.data.consentAt !== null
+  listAccounts(): AccountData[] {
+    return this.data.accountOrder
+      .map((id) => this.data.accounts[id])
+      .filter(Boolean)
   }
 
-  recordConsent(): void {
-    if (!this.data.consentAt) {
-      this.data.consentAt = new Date().toISOString()
+  getAccount(id: AccountID): AccountData | undefined {
+    return this.data.accounts[id]
+  }
+
+  createAccount(label: string): AccountData {
+    const id = randomUUID()
+    const acc: AccountData = {
+      id,
+      label: label.trim() || 'WhatsApp',
+      safeList: [],
+      verdicts: [],
+      consentAt: null
+    }
+    this.data.accounts[id] = acc
+    this.data.accountOrder.push(id)
+    this.persist()
+    return acc
+  }
+
+  deleteAccount(id: AccountID): void {
+    delete this.data.accounts[id]
+    this.data.accountOrder = this.data.accountOrder.filter((oid) => oid !== id)
+    this.persist()
+  }
+
+  renameAccount(id: AccountID, label: string): void {
+    const acc = this.data.accounts[id]
+    if (acc) {
+      acc.label = label.trim() || acc.label
       this.persist()
     }
   }
 
-  // --- safe-list ---
+  // --- consent (per-account) ---
 
-  getSafeList(): string[] {
-    return [...this.data.safeList]
+  hasConsent(accountId: AccountID): boolean {
+    return this.data.accounts[accountId]?.consentAt !== null
   }
 
-  addSafeNumber(num: string): void {
+  recordConsent(accountId: AccountID): void {
+    const acc = this.data.accounts[accountId]
+    if (acc && !acc.consentAt) {
+      acc.consentAt = new Date().toISOString()
+      this.persist()
+    }
+  }
+
+  // --- safe-list (per-account) ---
+
+  getSafeList(accountId: AccountID): string[] {
+    return [...(this.data.accounts[accountId]?.safeList ?? [])]
+  }
+
+  addSafeNumber(accountId: AccountID, num: string): void {
+    const acc = this.data.accounts[accountId]
+    if (!acc) return
     const trimmed = num.trim()
-    if (trimmed && !this.data.safeList.includes(trimmed)) {
-      this.data.safeList.push(trimmed)
+    if (trimmed && !acc.safeList.includes(trimmed)) {
+      acc.safeList.push(trimmed)
       this.persist()
     }
   }
 
-  removeSafeNumber(num: string): void {
-    const before = this.data.safeList.length
-    this.data.safeList = this.data.safeList.filter((n) => n !== num)
-    if (this.data.safeList.length !== before) this.persist()
+  removeSafeNumber(accountId: AccountID, num: string): void {
+    const acc = this.data.accounts[accountId]
+    if (!acc) return
+    const before = acc.safeList.length
+    acc.safeList = acc.safeList.filter((n) => n !== num)
+    if (acc.safeList.length !== before) this.persist()
   }
 
-  // --- verdicts ---
+  // --- verdicts (per-account) ---
 
-  addVerdict(record: VerdictRecord): void {
-    this.data.verdicts.push(record)
-    if (this.data.verdicts.length > MAX_VERDICTS) {
-      this.data.verdicts.splice(0, this.data.verdicts.length - MAX_VERDICTS)
+  addVerdict(accountId: AccountID, record: VerdictRecord): void {
+    const acc = this.data.accounts[accountId]
+    if (!acc) return
+    acc.verdicts.push(record)
+    if (acc.verdicts.length > MAX_VERDICTS) {
+      acc.verdicts.splice(0, acc.verdicts.length - MAX_VERDICTS)
     }
     this.persist()
   }
 
-  listVerdicts(): VerdictRecord[] {
-    return [...this.data.verdicts].sort((a, b) => b.timestamp - a.timestamp)
+  listVerdicts(accountId: AccountID): VerdictRecord[] {
+    const verdicts = this.data.accounts[accountId]?.verdicts ?? []
+    return [...verdicts].sort((a, b) => b.timestamp - a.timestamp)
   }
 
-  dismissVerdict(id: string): void {
-    const rec = this.data.verdicts.find((v) => v.id === id)
+  dismissVerdict(accountId: AccountID, id: string): void {
+    const rec = this.data.accounts[accountId]?.verdicts.find((v) => v.id === id)
     if (rec && !rec.dismissed) {
       rec.dismissed = true
       this.persist()
     }
   }
 
-  /** Wipe all stored verdicts (user purge). Safe-list is preserved. */
-  purgeVerdicts(): void {
-    this.data.verdicts = []
-    this.persist()
+  /** Wipe all stored verdicts for an account (user purge). Safe-list is preserved. */
+  purgeVerdicts(accountId: AccountID): void {
+    const acc = this.data.accounts[accountId]
+    if (acc) {
+      acc.verdicts = []
+      this.persist()
+    }
   }
 
   /**
-   * Full factory reset: wipe verdicts, safe-list, consent, and language. Resets
-   * the live instance (not an external file delete) so a later write can't
-   * re-persist stale in-memory data. After this, the app reverts to first-run.
+   * Full factory reset for one account: wipe verdicts, safe-list, and consent.
+   * After this, the account needs to re-consent.
    */
-  reset(): void {
-    this.data = { ...DEFAULT_DATA }
+  resetAccount(accountId: AccountID): void {
+    const acc = this.data.accounts[accountId]
+    if (!acc) return
+    acc.safeList = []
+    acc.verdicts = []
+    acc.consentAt = null
     this.persist()
   }
 }

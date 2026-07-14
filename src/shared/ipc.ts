@@ -1,6 +1,15 @@
 /** Centralised IPC channel names shared between main and preload. */
 export const IPC = {
-  // renderer -> main (invoke/handle)
+  // --- account CRUD (renderer -> main) ---
+  accountList: 'account:list',
+  accountCreate: 'account:create',
+  accountDelete: 'account:delete',
+  accountActivate: 'account:activate',
+  accountRename: 'account:rename',
+
+  // --- active-account scoped operations (renderer -> main) ---
+  // The renderer sets which account is "active"; all subsequent per-account
+  // handlers below operate on that active account.
   getSessionState: 'session:get',
   listAlerts: 'alerts:list',
   dismissAlert: 'alerts:dismiss',
@@ -25,5 +34,6 @@ export const IPC = {
   sessionStateChanged: 'session:changed',
   newAlert: 'alerts:new',
   modelProgress: 'model:progress',
-  modelStatus: 'model:status'
+  modelStatus: 'model:status',
+  aggregateStatusChanged: 'aggregate:changed'
 } as const

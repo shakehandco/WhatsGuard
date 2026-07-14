@@ -9,11 +9,28 @@ import type {
   DownloadProgress,
   ModelStatus,
   ModelTier,
-  SystemInfo
+  SystemInfo,
+  AccountMeta,
+  AccountID,
+  AggregateStatus
 } from '@shared/types'
 import type { Lang } from '@shared/i18n'
 
 const api: WhatsGuardApi = {
+  // --- account management ---
+  listAccounts: (): Promise<AccountMeta[]> => ipcRenderer.invoke(IPC.accountList),
+  createAccount: (label: string): Promise<AccountMeta> => ipcRenderer.invoke(IPC.accountCreate, label),
+  deleteAccount: (id: AccountID): Promise<void> => ipcRenderer.invoke(IPC.accountDelete, id),
+  activateAccount: (id: AccountID): Promise<void> => ipcRenderer.invoke(IPC.accountActivate, id),
+  renameAccount: (id: AccountID, label: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.accountRename, id, label),
+  onAggregateStatus: (cb: (s: AggregateStatus) => void) => {
+    const listener = (_e: unknown, s: AggregateStatus): void => cb(s)
+    ipcRenderer.on(IPC.aggregateStatusChanged, listener)
+    return () => ipcRenderer.removeListener(IPC.aggregateStatusChanged, listener)
+  },
+
+  // --- active-account scoped ---
   getSessionState: () => ipcRenderer.invoke(IPC.getSessionState),
   onSessionState: (cb: (s: SessionState) => void) => {
     const listener = (_e: unknown, s: SessionState): void => cb(s)
