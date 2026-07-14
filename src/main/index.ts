@@ -353,7 +353,23 @@ function detectOsLang(): Lang {
   return 'en'
 }
 
-app.whenReady().then(async () => {
+// Single-instance lock. Two instances share the same Baileys credentials in
+// userData, and WhatsApp allows only one active socket per linked device — so a
+// second copy makes the two fight over the session (ready → dropped → ready in a
+// tight loop, forever, since each successful open resets the reconnect breaker).
+// This bites on Windows specifically: launch-at-login starts a background copy,
+// then the user launches another from the Start menu. macOS coalesces re-launches
+// of a .app so it never surfaced there. The second instance quits immediately and
+// hands focus to the running one.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => showWindow())
+  void bootstrap()
+}
+
+async function bootstrap(): Promise<void> {
+  await app.whenReady()
   initLogs()
   store = new Store()
 
@@ -416,7 +432,7 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-})
+}
 
 // Tray/menubar app: stay alive when the UI window is closed (Phase 3 adds tray).
 app.on('window-all-closed', () => {
