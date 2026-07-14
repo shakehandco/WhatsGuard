@@ -34,10 +34,80 @@ body {
   display: none !important;
 }
 
+/* ---- Launch splash ---- */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+/* Faded out by main.ts after the hold; then [hidden] removes it from the tree. */
+#splash.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-inner {
+  text-align: center;
+  animation: splash-rise 0.5s ease both;
+}
+
+.splash-logo {
+  font-size: 72px;
+  line-height: 1;
+}
+
+.splash-name {
+  margin-top: 12px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.splash-tag {
+  margin-top: 8px;
+  font-size: 15px;
+  opacity: 0.85;
+}
+
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-inner {
+    animation: none;
+  }
+}
+
 header h1 {
   margin: 0;
   font-size: 28px;
   color: var(--accent);
+}
+
+/* App name is a link to the website; keep it looking like the heading. */
+header h1 a#app-name {
+  color: inherit;
+  text-decoration: none;
+}
+
+header h1 a#app-name:hover {
+  text-decoration: underline;
 }
 
 .tagline {

@@ -11,6 +11,15 @@
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
+    <!-- Launch splash: covers wizard/dashboard for ~2s, then fades out (main.ts) -->
+    <div id="splash">
+      <div class="splash-inner">
+        <div class="splash-logo" aria-hidden="true">🛡️</div>
+        <div class="splash-name">WhatsGuard</div>
+        <div class="splash-tag" id="splash-tag">Everything stays on your computer.</div>
+      </div>
+    </div>
+
     <!-- First-run wizard (rendered by wizard.ts) -->
     <div id="wizard" hidden></div>
 
@@ -18,7 +27,11 @@
     <main id="dashboard" hidden>
       <header>
         <div class="header-row">
-          <h1>WhatsGuard</h1>
+          <h1>
+            <a id="app-name" href="https://www.whatsguard.org" target="_blank" rel="noopener"
+              >WhatsGuard</a
+            >
+          </h1>
           <select id="lang-select" aria-label="Language"></select>
         </div>
         <p class="tagline" id="tagline">Everything stays on your computer.</p>

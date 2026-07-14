@@ -378,8 +378,35 @@ async function showDashboard(): Promise<void> {
   await refreshSystemInfo()
 }
 
+/** How long the launch splash stays up before fading out. */
+const SPLASH_MS = 2000
+
+/**
+ * Hold the launch splash for SPLASH_MS, then fade it out and remove it from the
+ * tree. Runs on its own timer so a slow/failed init() never traps the user
+ * behind the splash. The wizard/dashboard render underneath in the meantime.
+ */
+function scheduleSplashDismiss(): void {
+  const splash = document.getElementById('splash')
+  if (!splash) return
+  window.setTimeout(() => {
+    splash.addEventListener(
+      'transitionend',
+      () => {
+        splash.hidden = true
+      },
+      { once: true }
+    )
+    splash.classList.add('hide')
+  }, SPLASH_MS)
+}
+
 async function init(): Promise<void> {
+  scheduleSplashDismiss()
   lang = await window.whatsguard.getLanguage()
+  // Localize the splash tagline in-place (it starts with an English default so
+  // there's no empty flash before the language resolves).
+  $('splash-tag').textContent = t(lang, 'tagline')
   const ob = await window.whatsguard.getOnboardingState()
   if (ob.consentGiven && ob.modelPresent) {
     await showDashboard()
