@@ -189,7 +189,7 @@ export class AccountManager {
     return {
       id: acc.id,
       label: acc.label,
-      phoneNumber: bridge?.getNumber() ?? null,
+      phoneNumber: bridge?.getNumber() ?? acc.phoneNumber ?? null,
       sessionState: bridge?.getState() ?? { status: 'initializing' }
     }
   }
@@ -207,6 +207,11 @@ export class AccountManager {
     const bridge = new WhatsAppBridge({
       sessionDataPath: sessionDataPath(id),
       onSessionState: (state) => {
+        // Persist the phone number once the bridge connects so it survives restarts.
+        if (state.status === 'ready') {
+          const num = bridge.getNumber()
+          if (num) this.deps.store.setPhoneNumber(id, num)
+        }
         this.deps.onSessionState(id, state)
         this.emitAggregate()
       },

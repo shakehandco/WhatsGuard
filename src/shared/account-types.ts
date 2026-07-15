@@ -13,6 +13,8 @@ export interface AccountData {
   id: AccountID
   /** User-given friendly name, e.g. "Mom's phone". */
   label: string
+  /** Linked phone number in +E.164 form, persisted so it survives restarts. */
+  phoneNumber: string | null
   /** Trusted numbers for this account. */
   safeList: string[]
   /** Flagged-message verdicts (newest last). */

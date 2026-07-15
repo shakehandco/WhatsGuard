@@ -67,6 +67,7 @@ export class Store {
           merged.accounts[legacyId] = {
             id: legacyId,
             label: 'My WhatsApp',
+            phoneNumber: null,
             safeList: Array.isArray(parsed.safeList) ? parsed.safeList : [],
             verdicts: Array.isArray(parsed.verdicts) ? parsed.verdicts : [],
             consentAt: typeof parsed.consentAt === 'string' ? parsed.consentAt : null
@@ -124,6 +125,7 @@ export class Store {
     const acc: AccountData = {
       id,
       label: label.trim() || 'WhatsApp',
+      phoneNumber: null,
       safeList: [],
       verdicts: [],
       consentAt: null
@@ -144,6 +146,14 @@ export class Store {
     const acc = this.data.accounts[id]
     if (acc) {
       acc.label = label.trim() || acc.label
+      this.persist()
+    }
+  }
+
+  setPhoneNumber(id: AccountID, phone: string): void {
+    const acc = this.data.accounts[id]
+    if (acc && acc.phoneNumber !== phone) {
+      acc.phoneNumber = phone
       this.persist()
     }
   }
