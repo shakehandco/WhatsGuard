@@ -3,6 +3,10 @@
  * Keep this free of any Node/Electron imports so the renderer can import it.
  */
 import type { Lang } from './i18n'
+import type { AccountID, AccountMeta, AggregateStatus } from './account-types'
+
+// Re-export multi-account types for convenience (single import for renderer).
+export type { AccountID, AccountData, AccountMeta, AggregateStatus } from './account-types'
 
 /** A message surfaced by the WhatsApp bridge. Incoming only — see invariants. */
 export interface IncomingMessage {
@@ -193,6 +197,16 @@ export interface SystemInfo {
 
 /** Typed API surface exposed to the renderer via the preload bridge. */
 export interface WhatsGuardApi {
+  // --- account management ---
+  listAccounts(): Promise<AccountMeta[]>
+  createAccount(label: string): Promise<AccountMeta>
+  deleteAccount(id: AccountID): Promise<void>
+  activateAccount(id: AccountID): Promise<void>
+  renameAccount(id: AccountID, label: string): Promise<void>
+  /** Aggregate status for the tray/menu-bar icon. */
+  onAggregateStatus(cb: (s: AggregateStatus) => void): () => void
+
+  // --- active-account scoped ---
   getSessionState(): Promise<SessionState>
   onSessionState(cb: (s: SessionState) => void): () => void
   onAlert(cb: (r: VerdictRecord) => void): () => void

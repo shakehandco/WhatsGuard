@@ -162,6 +162,7 @@ const en: Dict = {
     'On your phone, open WhatsApp → Settings → Linked Devices → Link a Device, then point your phone at this code:',
   wiz_link_preparing: 'Preparing the code…',
   wiz_link_waiting: 'Waiting for you to scan…',
+  wiz_link_name_label: 'WhatsApp account name:',
   wiz_done_title: "✅ You're protected",
   wiz_done_lead:
     "WhatsGuard is now watching for scams in the background. If a message looks risky, you'll see a clear warning.",
@@ -178,7 +179,21 @@ const en: Dict = {
   tray_logs: 'Open logs folder',
   tray_quit: 'Quit WhatsGuard',
   notif_title: 'WhatsGuard stopped protecting you',
-  notif_body: 'WhatsApp was disconnected. Open WhatsGuard and re-scan the code to resume.'
+  notif_body: 'WhatsApp was disconnected. Open WhatsGuard and re-scan the code to resume.',
+
+  // --- multi-account ---
+  account_empty: 'No accounts yet. Add one to start protecting.',
+  account_add: 'Add WhatsApp account',
+  account_delete: 'Remove',
+  account_delete_confirm:
+    'Remove this account from WhatsGuard? Your WhatsApp will stay linked on the phone — only monitoring on this computer stops.',
+  account_name_label: 'Account name',
+  account_name_placeholder: 'e.g. Mom\'s phone',
+  account_select: 'Select account',
+  cancel: 'Cancel',
+  save: 'Save',
+  wiz_account_name_title: 'Name this account',
+  wiz_account_name_lead: 'Give this WhatsApp account a name so you can tell them apart later.'
 }
 
 const zh: Dict = {
@@ -271,6 +286,7 @@ const zh: Dict = {
   wiz_link_lead: '在手机上打开 WhatsApp → 设置 → 已登录的设备 → 关联设备，然后用手机对准此二维码：',
   wiz_link_preparing: '正在准备二维码…',
   wiz_link_waiting: '等待您扫描…',
+  wiz_link_name_label: 'WhatsApp 账号名称：',
   wiz_done_title: '✅ 您已受到保护',
   wiz_done_lead: 'WhatsGuard 正在后台监测诈骗。如果某条消息有风险，您会看到清晰的警告。',
   wiz_done_body: '您可以关闭此窗口 — WhatsGuard 会在菜单栏中继续运行。',
@@ -286,7 +302,19 @@ const zh: Dict = {
   tray_logs: '打开日志文件夹',
   tray_quit: '退出 WhatsGuard',
   notif_title: 'WhatsGuard 已停止保护',
-  notif_body: 'WhatsApp 已断开连接。请打开 WhatsGuard 并重新扫描二维码以恢复。'
+  notif_body: 'WhatsApp 已断开连接。请打开 WhatsGuard 并重新扫描二维码以恢复。',
+
+  account_empty: '尚无账户。添加一个以开始保护。',
+  account_add: '添加 WhatsApp 账户',
+  account_delete: '移除',
+  account_delete_confirm: '从此电脑移除该账户？手机上的 WhatsApp 将保持连接 — 仅停止此电脑上的监控。',
+  account_name_label: '账户名称',
+  account_name_placeholder: '例如：妈妈的手机',
+  account_select: '选择账户',
+  cancel: '取消',
+  save: '保存',
+  wiz_account_name_title: '为此账户命名',
+  wiz_account_name_lead: '给这个 WhatsApp 账户取个名字，方便以后区分。'
 }
 
 const id: Dict = {
@@ -385,6 +413,7 @@ const id: Dict = {
     'Di ponsel Anda, buka WhatsApp → Setelan → Perangkat Tertaut → Tautkan Perangkat, lalu arahkan ponsel ke kode ini:',
   wiz_link_preparing: 'Menyiapkan kode…',
   wiz_link_waiting: 'Menunggu Anda memindai…',
+  wiz_link_name_label: 'Nama akun WhatsApp:',
   wiz_done_title: '✅ Anda terlindungi',
   wiz_done_lead:
     'WhatsGuard kini mengawasi penipuan di latar belakang. Jika sebuah pesan berisiko, Anda akan melihat peringatan yang jelas.',
@@ -401,7 +430,19 @@ const id: Dict = {
   tray_logs: 'Buka folder log',
   tray_quit: 'Keluar dari WhatsGuard',
   notif_title: 'WhatsGuard berhenti melindungi Anda',
-  notif_body: 'WhatsApp terputus. Buka WhatsGuard dan pindai ulang kode untuk melanjutkan.'
+  notif_body: 'WhatsApp terputus. Buka WhatsGuard dan pindai ulang kode untuk melanjutkan.',
+
+  account_empty: 'Belum ada akun. Tambahkan satu untuk mulai melindungi.',
+  account_add: 'Tambah akun WhatsApp',
+  account_delete: 'Hapus',
+  account_delete_confirm: 'Hapus akun ini dari komputer ini? WhatsApp tetap tertaut di ponsel — hanya pemantauan di komputer ini yang berhenti.',
+  account_name_label: 'Nama akun',
+  account_name_placeholder: 'mis. Ponsel Ibu',
+  account_select: 'Pilih akun',
+  cancel: 'Batal',
+  save: 'Simpan',
+  wiz_account_name_title: 'Beri nama akun ini',
+  wiz_account_name_lead: 'Beri nama akun WhatsApp ini agar Anda bisa membedakannya nanti.'
 }
 
 const zhHant: Dict = {
@@ -494,6 +535,7 @@ const zhHant: Dict = {
   wiz_link_lead: '在手機上開啟 WhatsApp → 設定 → 已連結的裝置 → 連結裝置，然後用手機對準此 QR 碼：',
   wiz_link_preparing: '正在準備 QR 碼…',
   wiz_link_waiting: '等待您掃描…',
+  wiz_link_name_label: 'WhatsApp 帳戶名稱：',
   wiz_done_title: '✅ 您已受到保護',
   wiz_done_lead: 'WhatsGuard 正在背景監測詐騙。如果某則訊息有風險，您會看到清楚的警告。',
   wiz_done_body: '您可以關閉此視窗 — WhatsGuard 會在選單列中繼續執行。',
@@ -509,7 +551,19 @@ const zhHant: Dict = {
   tray_logs: '開啟記錄檔資料夾',
   tray_quit: '結束 WhatsGuard',
   notif_title: 'WhatsGuard 已停止保護',
-  notif_body: 'WhatsApp 已中斷連線。請開啟 WhatsGuard 並重新掃描 QR 碼以恢復。'
+  notif_body: 'WhatsApp 已中斷連線。請開啟 WhatsGuard 並重新掃描 QR 碼以恢復。',
+
+  account_empty: '尚無帳戶。新增一個以開始保護。',
+  account_add: '新增 WhatsApp 帳戶',
+  account_delete: '移除',
+  account_delete_confirm: '從此電腦移除該帳戶？手機上的 WhatsApp 將保持連線 — 僅停止此電腦上的監控。',
+  account_name_label: '帳戶名稱',
+  account_name_placeholder: '例如：媽媽的手機',
+  account_select: '選擇帳戶',
+  cancel: '取消',
+  save: '儲存',
+  wiz_account_name_title: '為此帳戶命名',
+  wiz_account_name_lead: '給這個 WhatsApp 帳戶取個名字，方便以後區分。'
 }
 
 const de: Dict = {
@@ -611,6 +665,7 @@ const de: Dict = {
     'Öffnen Sie auf Ihrem Handy WhatsApp → Einstellungen → Verknüpfte Geräte → Gerät verknüpfen, und richten Sie Ihr Handy dann auf diesen Code:',
   wiz_link_preparing: 'Code wird vorbereitet…',
   wiz_link_waiting: 'Warte auf Ihren Scan…',
+  wiz_link_name_label: 'WhatsApp-Kontoname:',
   wiz_done_title: '✅ Sie sind geschützt',
   wiz_done_lead:
     'WhatsGuard achtet jetzt im Hintergrund auf Betrug. Wenn eine Nachricht riskant aussieht, sehen Sie eine klare Warnung.',
@@ -628,7 +683,19 @@ const de: Dict = {
   tray_quit: 'WhatsGuard beenden',
   notif_title: 'WhatsGuard schützt Sie nicht mehr',
   notif_body:
-    'WhatsApp wurde getrennt. Öffnen Sie WhatsGuard und scannen Sie den Code erneut, um fortzufahren.'
+    'WhatsApp wurde getrennt. Öffnen Sie WhatsGuard und scannen Sie den Code erneut, um fortzufahren.',
+
+  account_empty: 'Noch keine Konten. Fügen Sie eines hinzu, um den Schutz zu starten.',
+  account_add: 'WhatsApp-Konto hinzufügen',
+  account_delete: 'Entfernen',
+  account_delete_confirm: 'Dieses Konto von diesem Computer entfernen? WhatsApp bleibt auf dem Handy verknüpft — nur die Überwachung auf diesem Computer wird gestoppt.',
+  account_name_label: 'Kontoname',
+  account_name_placeholder: 'z. B. Mamas Handy',
+  account_select: 'Konto auswählen',
+  cancel: 'Abbrechen',
+  save: 'Speichern',
+  wiz_account_name_title: 'Dieses Konto benennen',
+  wiz_account_name_lead: 'Geben Sie diesem WhatsApp-Konto einen Namen, damit Sie es später unterscheiden können.'
 }
 
 const es: Dict = {
@@ -730,6 +797,7 @@ const es: Dict = {
     'En su teléfono, abra WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo, y luego apunte su teléfono a este código:',
   wiz_link_preparing: 'Preparando el código…',
   wiz_link_waiting: 'Esperando a que escanee…',
+  wiz_link_name_label: 'Nombre de cuenta WhatsApp:',
   wiz_done_title: '✅ Está protegido',
   wiz_done_lead:
     'WhatsGuard ahora vigila las estafas en segundo plano. Si un mensaje parece riesgoso, verá una advertencia clara.',
@@ -746,7 +814,19 @@ const es: Dict = {
   tray_logs: 'Abrir carpeta de registros',
   tray_quit: 'Salir de WhatsGuard',
   notif_title: 'WhatsGuard dejó de protegerle',
-  notif_body: 'WhatsApp se desconectó. Abra WhatsGuard y vuelva a escanear el código para reanudar.'
+  notif_body: 'WhatsApp se desconectó. Abra WhatsGuard y vuelva a escanear el código para reanudar.',
+
+  account_empty: 'Aún no hay cuentas. Agregue una para comenzar a proteger.',
+  account_add: 'Agregar cuenta de WhatsApp',
+  account_delete: 'Quitar',
+  account_delete_confirm: '¿Quitar esta cuenta de esta computadora? WhatsApp seguirá vinculado en el teléfono — solo se detiene la supervisión en esta computadora.',
+  account_name_label: 'Nombre de la cuenta',
+  account_name_placeholder: 'p. ej. Teléfono de mamá',
+  account_select: 'Seleccionar cuenta',
+  cancel: 'Cancelar',
+  save: 'Guardar',
+  wiz_account_name_title: 'Asigne un nombre a esta cuenta',
+  wiz_account_name_lead: 'Asigne un nombre a esta cuenta de WhatsApp para poder distinguirlas más tarde.'
 }
 
 const DICTS: Record<Lang, Dict> = { en, zh, 'zh-Hant': zhHant, id, de, es }

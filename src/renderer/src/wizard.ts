@@ -1,4 +1,4 @@
-import { SELECTABLE_MODELS, type ModelTier, type OnboardingState, type SessionState } from '@shared/types'
+import { SELECTABLE_MODELS, type ModelTier, type OnboardingState, type SessionState, type AccountID } from '@shared/types'
 import { t, LANGS, type Lang } from '@shared/i18n'
 
 const wg = (): Window['whatsguard'] => window.whatsguard
@@ -11,7 +11,12 @@ const fmtGB = (bytes: number): string => `${(bytes / 1e9).toFixed(1)} GB`
  * reveal the dashboard. Fully localized; the welcome screen offers a language
  * picker so a non-English speaker can switch before reading anything else.
  */
-export function runWizard(initial: OnboardingState, initialLang: Lang, onComplete: () => void): void {
+export function runWizard(
+  initial: OnboardingState,
+  initialLang: Lang,
+  accountId: AccountID,
+  onComplete: () => void
+): void {
   const root = byId('wizard')
   let modelReady = initial.modelPresent
   let lang = initialLang
@@ -159,13 +164,31 @@ export function runWizard(initial: OnboardingState, initialLang: Lang, onComplet
         done()
         return
       }
-      const qr = s.status === 'qr' && s.qr ? `<img class="wiz-qr" src="${s.qr}" alt="QR code" />` : `<p class="muted">${t(lang, 'wiz_link_preparing')}</p>`
+      const qr =
+        s.status === 'qr' && s.qr
+          ? `<img class="wiz-qr" src="${s.qr}" alt="QR code" />`
+          : `<p class="muted">${t(lang, 'wiz_link_preparing')}</p>`
       screen(`
         <h1>${t(lang, 'wiz_link_title')}</h1>
         <p class="lead">${t(lang, 'wiz_link_lead')}</p>
         ${qr}
         <p class="muted">${t(lang, 'wiz_link_waiting')}</p>
+        <p class="wiz-name-label">${t(lang, 'wiz_link_name_label')}</p>
+        <div class="wiz-name-row">
+          <input id="wiz-name" type="text" class="add-account-input" autocomplete="off"
+            placeholder="${t(lang, 'account_name_placeholder')}"
+            style="width:100%;margin-top:14px;text-align:center" />
+        </div>
       `)
+      // Wire the name input — save on every keystroke so the name sticks
+      // even if the QR screen re-renders.
+      const nameInput = byId<HTMLInputElement>('wiz-name')
+      if (nameInput) {
+        nameInput.oninput = (): void => {
+          const label = nameInput.value.trim()
+          if (label) void wg().renameAccount(accountId, label)
+        }
+      }
     }
     offSession = wg().onSessionState(render)
     void wg().getSessionState().then(render)
