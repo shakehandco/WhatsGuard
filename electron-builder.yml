@@ -11,16 +11,32 @@ files:
 # Ship the native sidecar + OTA config into Contents/Resources/{bin,config}.
 # These land OUTSIDE the asar, and being inside the .app they are deep-signed by
 # @electron/osx-sign with the entitlements below.
+#
+# resources/bin is filtered PER PLATFORM (see mac/win below) rather than copied
+# wholesale: a dev machine that has built for both platforms holds the macOS
+# sidecar AND the Windows one side by side, and an unfiltered copy would ship
+# ~21 Windows DLLs inside the .app (and ~35 Mach-O dylibs inside the installer).
+# Beyond the wasted bytes, a foreign binary under Contents/Resources is nested
+# code the notarization/nested-code checks have to reason about — keep the
+# bundle honest and carry only this platform's sidecar.
+# A platform's `extraResources` REPLACES this list rather than extending it, so
+# the config entry is repeated in each platform block below alongside its own
+# sidecar filter. Kept here as the shared default for any future platform.
 extraResources:
-  - from: resources/bin
-    to: bin
-    filter: ['**/*']
   - from: resources/config
     to: config
     filter: ['**/*']
 
 mac:
   category: public.app-category.utilities
+  extraResources:
+    - from: resources/config
+      to: config
+      filter: ['**/*']
+    - from: resources/bin
+      to: bin
+      # macOS sidecar only: the Mach-O llama-server + its dylibs (Metal/BLAS/CPU).
+      filter: ['llama-server', '*.dylib']
   # arm64-only for MVP: the bundled llama-server is Apple-Silicon. Building x64
   # too would ship a broken binary AND make parallel dmg builds fight over the
   # /Volumes/WhatsGuard mount (hdiutil detach race). Add x64 when we bundle an
@@ -74,6 +90,17 @@ win:
   target:
     - target: nsis
       arch: [x64]
+  extraResources:
+    - from: resources/config
+      to: config
+      filter: ['**/*']
+    - from: resources/bin
+      to: bin
+      # Windows sidecar only: llama-server.exe + every DLL it imports. The DLLs
+      # are NOT optional — the exe resolves llama-server-impl/llama-common/ggml*
+      # at load time, and a missing one lets the loader bind a mismatched copy
+      # from elsewhere on the search path (STATUS_ENTRYPOINT_NOT_FOUND).
+      filter: ['llama-server.exe', '*.dll']
   # Unsigned for now — signing needs an Authenticode cert (see docs/RELEASE.md
   # for the macOS pipeline this should mirror). Once signing lands, also set
   # publisherName so electron-updater verifies the certificate on updates:
