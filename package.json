@@ -1,6 +1,6 @@
 {
   "name": "whatsguard",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Privacy-preserving, on-device elder-fraud detection for WhatsApp.",
   "author": "WhatsGuard",
   "license": "Apache-2.0",

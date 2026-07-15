@@ -1,4 +1,4 @@
-name: Release macOS
+name: Release
 
 # Privileged trust level. Runs ONLY on a protected version tag (or manual
 # dispatch from a tag ref). Uses the `production-release` GitHub environment,
@@ -8,14 +8,18 @@ name: Release macOS
 # Immutable-bytes rule: build → sign → notarize → staple → VERIFY → publish.
 # Nothing mutates the artifacts after they are built; the exact bytes that pass
 # verification are the bytes uploaded, and their SHA-512 is what electron-updater
-# checks against latest-mac.yml.
+# checks against latest-mac.yml / latest.yml.
+#
+# The macOS job publishes the release; the Windows job then uploads into it
+# (needs: release), so both platforms land on one tag and a single human
+# approval gates the whole thing.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
 
 concurrency:
-  group: macos-release
+  group: release
   cancel-in-progress: false
 
 permissions:
@@ -49,6 +53,12 @@ jobs:
           fi
 
       - run: npm ci
+
+      # The sidecar is not in git, so without this the build silently produces an
+      # app with NO llama-server: nothing fails, and the shipped bundle has no
+      # inference engine. Pinned by build tag + SHA-256 (see the script).
+      - name: Fetch llama.cpp sidecar (pinned)
+        run: ./ci/fetch-llama-sidecar.sh mac
 
       # electron-builder imports CSC_LINK into a temporary keychain and cleans it
       # up itself; it reads the App Store Connect key from APPLE_API_KEY (a path),
@@ -141,3 +151,76 @@ jobs:
       - name: Clean sensitive material
         if: always()
         run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
+
+  release-win:
+    name: Windows installer
+    runs-on: windows-latest
+    # Uploads into the release the macOS job creates, so both platforms land on
+    # one tag under a single human approval. Sequential, not parallel: there is
+    # no `gh release create` race to lose.
+    needs: release
+    steps:
+      # TODO(security): pin to a reviewed full commit SHA for production.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Same pinned-and-hashed fetch the macOS job uses (different build; each
+      # platform sits on the version it was tested against).
+      - name: Fetch llama.cpp sidecar (pinned)
+        shell: bash
+        run: ./ci/fetch-llama-sidecar.sh win
+
+      # NOTE: unsigned. Until an Authenticode certificate is configured, the
+      # installer trips SmartScreen on first run and electron-updater cannot
+      # verify a publisher on update. When a cert lands, set the signing env
+      # here and add `publisherName` to the win block in electron-builder.yml.
+      - name: Build + package
+        shell: bash
+        run: npm run pack:win
+
+      - name: Resolve built artifacts
+        id: art
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXE="$(find dist -maxdepth 1 -name '*.exe' | head -1)"
+          if [ -z "$EXE" ]; then echo "::error::no installer found in dist/"; exit 1; fi
+          echo "exe=$EXE" >>"$GITHUB_OUTPUT"
+
+      # The sidecar is the whole point of the app: assert it actually made it
+      # into the bundle rather than discovering a missing engine in the field.
+      - name: Verify sidecar is bundled
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=dist/win-unpacked/resources/bin
+          for f in llama-server.exe llama-common.dll llama-server-impl.dll llama.dll ggml-base.dll; do
+            if [ ! -f "$BIN/$f" ]; then echo "::error::missing $f in packaged app"; exit 1; fi
+          done
+          echo "sidecar OK: $(ls "$BIN"/*.dll | wc -l) DLLs + llama-server.exe"
+
+      - name: Record SHA-256 of published bytes
+        shell: bash
+        run: sha256sum "${{ steps.art.outputs.exe }}" dist/latest.yml | tee dist/SHASUMS256-win.txt
+
+      - name: Provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: ${{ steps.art.outputs.exe }}
+
+      - name: Upload into the release (immutable bytes)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXE: ${{ steps.art.outputs.exe }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=( "$EXE" dist/latest.yml dist/SHASUMS256-win.txt dist/*.exe.blockmap )
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
