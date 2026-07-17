@@ -8,6 +8,9 @@ dist/
 # Editor / tool local state
 .claude/settings.local.json
 
+# Internal test plan — kept out of the public repo
+docs/TESTING.md
+
 # Stale cache from the former wwebjs/puppeteer engine (now on Baileys)
 .wwebjs_cache/
 
