@@ -3,7 +3,12 @@ import { existsSync, readFileSync } from 'fs'
 import { totalmem } from 'os'
 import { join } from 'path'
 import type { HardwareInfo, ModelTier } from '@shared/types'
-import { downloadModel, type DownloadOptions, type DownloadSpec } from './model-downloader'
+import {
+  downloadModel,
+  downloadSources,
+  type DownloadOptions,
+  type DownloadSpec
+} from './model-downloader'
 
 /** MVP ships a single tier for everyone: Gemma 4 E4B. */
 export const DEFAULT_TIER: ModelTier = 'e4b'
@@ -75,9 +80,15 @@ async function ensureFile(
   what: string,
   opts: DownloadOptions
 ): Promise<string> {
-  if (!spec.sha256) {
+  const sources = downloadSources(spec)
+  if (sources.length === 0) {
+    throw new Error(`No download source recorded for ${what} in models-manifest.json.`)
+  }
+  // Every source must be verifiable — one un-hashed mirror would be a hole in
+  // the "never install unverified bytes" guarantee, so refuse the whole spec.
+  if (sources.some((s) => !s.sha256)) {
     throw new Error(
-      `No SHA-256 recorded for ${what} in models-manifest.json — refusing to download ` +
+      `A source for ${what} in models-manifest.json has no SHA-256 — refusing to download ` +
         `an unverifiable file.`
     )
   }

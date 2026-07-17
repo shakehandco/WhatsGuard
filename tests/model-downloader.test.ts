@@ -81,6 +81,64 @@ describe('downloadModel', () => {
   })
 })
 
+describe('downloadModel — multi-source failover', () => {
+  it('falls over to the next source when the first cannot be reached', async () => {
+    const dest = tmpDest()
+    const logs: string[] = []
+    // First source points at a dead port; second is the live server.
+    await downloadModel(
+      {
+        sources: [
+          { url: 'http://127.0.0.1:1/model', sha256: GOOD_SHA },
+          { url: `${baseUrl}/model`, sha256: GOOD_SHA }
+        ]
+      },
+      dest,
+      { maxRetries: 0, onLog: (m) => logs.push(m) }
+    )
+    expect(readFileSync(dest).equals(PAYLOAD)).toBe(true)
+    expect(logs.some((l) => /source 1\/2 failed/.test(l))).toBe(true)
+    expect(logs.some((l) => /succeeded via source 2\/2/.test(l))).toBe(true)
+  })
+
+  it("falls over when the first source's bytes fail ITS checksum, verifying against each source's own hash", async () => {
+    const dest = tmpDest()
+    // Both sources return the SAME bytes, but source 1 declares a wrong hash for
+    // them (as a re-quantised mirror would) — it must be rejected and discarded,
+    // then source 2 accepts the same bytes against its correct hash.
+    await downloadModel(
+      {
+        sources: [
+          { url: `${baseUrl}/model`, sha256: 'deadbeef'.repeat(8) },
+          { url: `${baseUrl}/model`, sha256: GOOD_SHA }
+        ]
+      },
+      dest,
+      { maxRetries: 0 }
+    )
+    expect(await sha256File(dest)).toBe(GOOD_SHA)
+    expect(existsSync(`${dest}.part`)).toBe(false)
+  })
+
+  it('throws with every failure listed when all sources fail', async () => {
+    const dest = tmpDest()
+    await expect(
+      downloadModel(
+        {
+          sources: [
+            { url: 'http://127.0.0.1:1/a', sha256: GOOD_SHA },
+            { url: 'http://127.0.0.1:2/b', sha256: GOOD_SHA }
+          ]
+        },
+        dest,
+        { maxRetries: 0 }
+      )
+    ).rejects.toThrow(/all 2 download source\(s\) failed/)
+    expect(existsSync(dest)).toBe(false)
+    expect(existsSync(`${dest}.part`)).toBe(false)
+  })
+})
+
 describe('downloadModel — truncated stream', () => {
   let truncServer: Server
   let truncUrl: string

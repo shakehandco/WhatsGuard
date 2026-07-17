@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-tier text model + multimodal projector (mmproj). SHA-256 values are MANDATORY — ensureModel() refuses any entry with an empty sha256, so a model is never installed unverified. E4B is filled from ggml-org/gemma-4-E4B-it-GGUF; E2B/12B left for when those tiers are wired.",
+  "_comment": "Per-tier text model + multimodal projector (mmproj). SHA-256 is MANDATORY on every source — ensureModel() refuses any entry with an empty sha256, so a model is never installed unverified. An entry is EITHER a single source {url,sha256,sizeBytes} OR {\"sources\":[...]} of failover mirrors tried in order. Mirrors are NOT byte-identical across repos (an independent re-quantise differs), so each source carries its OWN hash+size. E2B is a placeholder (empty sha256, not yet wired); E4B + 12B are live.",
   "tiers": {
     "e2b": {
       "model": {
@@ -27,14 +27,32 @@
     },
     "12b": {
       "model": {
-        "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/gemma-4-12B-it-Q4_K_M.gguf",
-        "sha256": "1278394b693672ac2799eadc9a83fd98259a6a88a40acfb1dcaa6c6fc895a606",
-        "sizeBytes": 7381382048
+        "sources": [
+          {
+            "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/gemma-4-12B-it-Q4_K_M.gguf",
+            "sha256": "1278394b693672ac2799eadc9a83fd98259a6a88a40acfb1dcaa6c6fc895a606",
+            "sizeBytes": 7381382048
+          },
+          {
+            "url": "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf",
+            "sha256": "43fec98c5102b1c446b4ddd0a9439f1db3a2e1f2e0b8cd143ce1ea619a9403d6",
+            "sizeBytes": 7121860000
+          }
+        ]
       },
       "mmproj": {
-        "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/mmproj-gemma-4-12B-it-Q8_0.gguf",
-        "sha256": "b486d28398a398db4fa14cc4b032252ad3a8d7f950b9fabd93f5c8b4d4dde52b",
-        "sizeBytes": 158987584
+        "sources": [
+          {
+            "url": "https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF/resolve/main/mmproj-gemma-4-12B-it-Q8_0.gguf",
+            "sha256": "b486d28398a398db4fa14cc4b032252ad3a8d7f950b9fabd93f5c8b4d4dde52b",
+            "sizeBytes": 158987584
+          },
+          {
+            "url": "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/mmproj-F16.gguf",
+            "sha256": "91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e",
+            "sizeBytes": 175115840
+          }
+        ]
       }
     }
   }
